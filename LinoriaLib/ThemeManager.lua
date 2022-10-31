@@ -11,7 +11,7 @@ local ThemeManager = {} do
 		['Tokyo Night'] 	= { 5, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"191925","AccentColor":"6759b3","BackgroundColor":"16161f","OutlineColor":"323232"}') },
 		['Ubuntu'] 			= { 6, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"3e3e3e","AccentColor":"e2581e","BackgroundColor":"323232","OutlineColor":"191919"}') },
 		['Discord'] 		= { 7, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"2f3136","AccentColor":"5865f2","BackgroundColor":"36393f","OutlineColor":"2f3136"}') },
-		['Discord Light']	= { 7, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"f2f3f5","AccentColor":"5865f2","BackgroundColor":"ffffff","OutlineColor":"f2f3f5"}') },
+		['Discord Light']	= { 7, httpService:JSONDecode('{"FontColor":"000000","MainColor":"f2f3f5","AccentColor":"5865f2","BackgroundColor":"ffffff","OutlineColor":"f2f3f5"}') },
 		['Visual Studio'] 	= { 8, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"252526","AccentColor":"007acc","BackgroundColor":"1e1e1e","OutlineColor":"333333"}') }
 	}
 
