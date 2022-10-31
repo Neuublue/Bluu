@@ -105,11 +105,8 @@ local ThemeManager = {} do
 				end))
 				RainbowFunctionIndex = #self.Library.Signals
 			elseif RainbowFunctionIndex then
-				print('um')
 				table.remove(self.Library.Signals, RainbowFunctionIndex):Disconnect();
-				print('hi')
 				self:ThemeUpdate();
-				print('done')
 			end;
 		end);
 		groupbox:AddLabel('Outline color'):AddColorPicker('OutlineColor', { Default = self.Library.OutlineColor });
