@@ -1494,7 +1494,7 @@ do
         end;
 
         function Toggle:SetValue(Bool)
-            Bool = (not not Bool);
+            if Toggle.Value == Bool then return end;
 
             Toggle.Value = Bool;
             Toggle:Display();
@@ -1507,7 +1507,9 @@ do
             end
 
             if Toggle.Changed then
-                Toggle.Changed(Toggle.Value)
+                task.spawn(function()
+                    Toggle.Changed(Toggle.Value);
+                end);
             end;
         end;
 
