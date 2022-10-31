@@ -79,6 +79,7 @@ local ThemeManager = {} do
 		groupbox:AddLabel('Background color'):AddColorPicker('BackgroundColor', { Default = self.Library.BackgroundColor });
 		groupbox:AddLabel('Main color')	:AddColorPicker('MainColor', { Default = self.Library.MainColor });
 		groupbox:AddLabel('Accent color'):AddColorPicker('AccentColor', { Default = self.Library.AccentColor });
+		local RainbowFunctionIndex
 		groupbox:AddToggle('Rainbow', { Text = 'Rainbow accent color' }):OnChanged(function(Value)
 			if Value then
 				self.Library:GiveSignal(game:GetService('RunService').RenderStepped:Connect(function(Delta)
@@ -102,9 +103,9 @@ local ThemeManager = {} do
 						end;
 					end;
 				end))
-				Toggles.Rainbow.Value = #self.Library.Signals
-			elseif self.Library.Signals[Toggles.Rainbow.Value] then
-				table.remove(self.Library.Signals, Toggles.Rainbow.Value):Disconnect();
+				RainbowFunctionIndex = #self.Library.Signals
+			elseif RainbowFunctionIndex then
+				table.remove(self.Library.Signals, RainbowFunctionIndex):Disconnect();
 				self:ThemeUpdate();
 			end;
 		end);
