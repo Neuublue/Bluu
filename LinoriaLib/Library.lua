@@ -1619,6 +1619,7 @@ do
             Text = 'Infinite';
             ZIndex = 9;
             Parent = SliderInner;
+            TextStrokeTransparency = 0;
         });
 
         Library:OnHighlight(SliderOuter, SliderOuter,
