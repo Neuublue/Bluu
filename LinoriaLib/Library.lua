@@ -88,7 +88,7 @@ function Library:CreateLabel(Properties, IsHud)
         Font = Enum.Font.Code;
         TextColor3 = Library.FontColor;
         TextSize = 16;
-        TextStrokeTransparency = 0;
+        TextStrokeTransparency = 1;
     });
 
     Library:AddToRegistry(_Instance, {
@@ -480,7 +480,7 @@ do
             Text = '#FFFFFF',
             TextColor3 = Library.FontColor;
             TextSize = 14;
-            TextStrokeTransparency = 0;
+            TextStrokeTransparency = 1;
             TextXAlignment = Enum.TextXAlignment.Left;
             ZIndex = 20,
             Parent = HueBoxInner;
@@ -1311,7 +1311,7 @@ do
             Text = Info.Default or '';
             TextColor3 = Library.FontColor;
             TextSize = 14;
-            TextStrokeTransparency = 0;
+            TextStrokeTransparency = 1;
             TextXAlignment = Enum.TextXAlignment.Left;
 
             ZIndex = 7;
