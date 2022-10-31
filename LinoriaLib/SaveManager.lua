@@ -5,11 +5,11 @@ local SaveManager = {} do
 	SaveManager.Ignore = {}
 	SaveManager.Parser = {
 		Toggle = {
-			Save = function(idx, object)
-				return { type = 'Toggle', idx = idx, value = object.Value }
+			Save = function(idx, object) 
+				return { type = 'Toggle', idx = idx, value = object.Value } 
 			end,
 			Load = function(idx, data)
-				if Toggles[idx] then
+				if Toggles[idx] then 
 					Toggles[idx]:SetValue(data.value)
 				end
 			end,
@@ -19,7 +19,7 @@ local SaveManager = {} do
 				return { type = 'Slider', idx = idx, value = tostring(object.Value) }
 			end,
 			Load = function(idx, data)
-				if Options[idx] then
+				if Options[idx] then 
 					Options[idx]:SetValue(data.value)
 				end
 			end,
@@ -29,7 +29,7 @@ local SaveManager = {} do
 				return { type = 'Dropdown', idx = idx, value = object.Value, mutli = object.Multi }
 			end,
 			Load = function(idx, data)
-				if Options[idx] then
+				if Options[idx] then 
 					Options[idx]:SetValue(data.value)
 				end
 			end,
@@ -39,7 +39,7 @@ local SaveManager = {} do
 				return { type = 'ColorPicker', idx = idx, value = object.Value:ToHex() }
 			end,
 			Load = function(idx, data)
-				if Options[idx] then
+				if Options[idx] then 
 					Options[idx]:SetValueRGB(Color3.fromHex(data.value))
 				end
 			end,
@@ -49,7 +49,7 @@ local SaveManager = {} do
 				return { type = 'KeyPicker', idx = idx, mode = object.Mode, key = object.Value }
 			end,
 			Load = function(idx, data)
-				if Options[idx] then
+				if Options[idx] then 
 					Options[idx]:SetValue({ data.key, data.mode })
 				end
 			end,
@@ -96,7 +96,7 @@ local SaveManager = {} do
 			if self.Ignore[idx] then continue end
 
 			table.insert(data.objects, self.Parser[option.Type].Save(idx, option))
-		end
+		end	
 
 		local success, encoded = pcall(httpService.JSONEncode, httpService, data)
 		if not success then
@@ -124,7 +124,7 @@ local SaveManager = {} do
 	end
 
 	function SaveManager:IgnoreThemeSettings()
-		self:SetIgnoreIndexes({
+		self:SetIgnoreIndexes({ 
 			"BackgroundColor", "MainColor", "AccentColor", "OutlineColor", "FontColor", -- themes
 			"ThemeManager_ThemeList", 'ThemeManager_CustomThemeList', 'ThemeManager_CustomThemeName', -- themes
 		})
@@ -168,7 +168,7 @@ local SaveManager = {} do
 				end
 			end
 		end
-
+		
 		return out
 	end
 
@@ -203,7 +203,7 @@ local SaveManager = {} do
 		section:AddButton('Create config', function()
 			local name = Options.SaveManager_ConfigName.Value
 
-			if name:gsub(' ', '') == '' then
+			if name:gsub(' ', '') == '' then 
 				return self.Library:Notify('Invalid config name (empty)', 2)
 			end
 
@@ -238,7 +238,7 @@ local SaveManager = {} do
 
 			self.Library:Notify(string.format('Overwrote config %q', name))
 		end)
-
+		
 		section:AddButton('Autoload config', function()
 			local name = Options.SaveManager_ConfigList.Value
 			writefile(self.Folder .. '/settings/autoload.txt', name)

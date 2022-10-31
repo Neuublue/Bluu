@@ -5,18 +5,14 @@ local ThemeManager = {} do
 
 	ThemeManager.Library = nil
 	ThemeManager.BuiltInThemes = {
-		['Default']			= { 1, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"1c1c1c","AccentColor":"0055ff","BackgroundColor":"141414","OutlineColor":"323232"}') },
-		['Dracula']			= { 2, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"232533","AccentColor":"6271a5","BackgroundColor":"1b1c27","OutlineColor":"7c82a7"}') },
-		['Bitch Bot']		= { 3, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"1e1e1e","AccentColor":"7e48a3","BackgroundColor":"232323","OutlineColor":"141414"}') },
-		['Kiriot Hub']		= { 4, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"30333b","AccentColor":"ffaa00","BackgroundColor":"1a1c20","OutlineColor":"141414"}') },
-		['Fatality'] 		= { 5, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"1e1842","AccentColor":"c50754","BackgroundColor":"191335","OutlineColor":"3c355d"}') },
-		['Green'] 			= { 6, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"141414","AccentColor":"00ff8b","BackgroundColor":"1c1c1c","OutlineColor":"3c3c3c"}') },
-		['Jester'] 			= { 7, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"242424","AccentColor":"db4467","BackgroundColor":"1c1c1c","OutlineColor":"373737"}') },
-		['Mint'] 			= { 8, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"242424","AccentColor":"3db488","BackgroundColor":"1c1c1c","OutlineColor":"373737"}') },
-		['Tokyo Night'] 	= { 9, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"191925","AccentColor":"6759b3","BackgroundColor":"16161f","OutlineColor":"323232"}') },
-		['Ubuntu'] 			= { 10, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"3e3e3e","AccentColor":"e2581e","BackgroundColor":"323232","OutlineColor":"191919"}') },
-		['Discord'] 		= { 11, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"2f3136","AccentColor":"5865f2","BackgroundColor":"202225","OutlineColor":"36393f"}') },
-		['Visual Studio'] 	= { 12, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"252526","AccentColor":"007acc","BackgroundColor":"1e1e1e","OutlineColor":"333333"}') },
+		['Default'] 		= { 1, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"1c1c1c","AccentColor":"0055ff","BackgroundColor":"141414","OutlineColor":"323232"}') },
+		['Green'] 			= { 2, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"141414","AccentColor":"00ff8b","BackgroundColor":"1c1c1c","OutlineColor":"3c3c3c"}') },
+		['Jester'] 			= { 3, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"242424","AccentColor":"db4467","BackgroundColor":"1c1c1c","OutlineColor":"373737"}') },
+		['Mint'] 			= { 4, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"242424","AccentColor":"3db488","BackgroundColor":"1c1c1c","OutlineColor":"373737"}') },
+		['Tokyo Night'] 	= { 5, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"191925","AccentColor":"6759b3","BackgroundColor":"16161f","OutlineColor":"323232"}') },
+		['Ubuntu'] 			= { 6, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"3e3e3e","AccentColor":"e2581e","BackgroundColor":"323232","OutlineColor":"191919"}') },
+		['Discord'] 		= { 7, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"2f3136","AccentColor":"5865f2","BackgroundColor":"202225","OutlineColor":"36393f"}') },
+		['Visual Studio'] 	= { 8, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"252526","AccentColor":"007acc","BackgroundColor":"1e1e1e","OutlineColor":"333333"}') }
 	}
 
 	function ThemeManager:ApplyTheme(theme)
@@ -30,7 +26,7 @@ local ThemeManager = {} do
 		local scheme = data[2]
 		for idx, col in next, customThemeData or scheme do
 			self.Library[idx] = Color3.fromHex(col)
-
+			
 			if Options[idx] then
 				Options[idx]:SetValueRGB(Color3.fromHex(col))
 			end
@@ -40,17 +36,19 @@ local ThemeManager = {} do
 	end
 
 	function ThemeManager:ThemeUpdate()
-		self.Library.FontColor = Options.FontColor.Value
-		self.Library.MainColor = Options.MainColor.Value
-		self.Library.AccentColor = Options.AccentColor.Value
-		self.Library.BackgroundColor = Options.BackgroundColor.Value
-		self.Library.OutlineColor = Options.OutlineColor.Value
+		-- This allows us to force apply themes without loading the themes tab :)
+		local options = { "FontColor", "MainColor", "AccentColor", "BackgroundColor", "OutlineColor" }
+		for i, field in next, options do
+			if Options and Options[field] then
+				self.Library[field] = Options[field].Value
+			end
+		end
 
 		self.Library.AccentColorDark = self.Library:GetDarkerColor(self.Library.AccentColor);
 		self.Library:UpdateColorsUsingRegistry()
 	end
 
-	function ThemeManager:LoadDefault()
+	function ThemeManager:LoadDefault()		
 		local theme = 'Default'
 		local content = isfile(self.Folder .. '/themes/default.txt') and readfile(self.Folder .. '/themes/default.txt')
 
@@ -81,32 +79,35 @@ local ThemeManager = {} do
 		groupbox:AddLabel('Background color'):AddColorPicker('BackgroundColor', { Default = self.Library.BackgroundColor });
 		groupbox:AddLabel('Main color')	:AddColorPicker('MainColor', { Default = self.Library.MainColor });
 		groupbox:AddLabel('Accent color'):AddColorPicker('AccentColor', { Default = self.Library.AccentColor });
-		groupbox:AddToggle('Rainbow', { Text = 'Rainbow accent color', Default = true }):OnChanged(function()
-			if Options.OutlineColor and not Toggles.Rainbow.Value then
-				self:ThemeUpdate()
-			end;
-		end);
-		table.insert(self.Library.Signals, game:GetService('RunService').RenderStepped:Connect(function(Delta)
-			if Toggles.Rainbow.Value then
-				for Idx, Object in next, self.Library.Registry do
-					for Property, ColorIdx in next, Object.Properties do
-						if ColorIdx == 'AccentColor' or ColorIdx == 'AccentColorDark' then
-							local Instance = Object.Instance;
-							local yPos = Instance.AbsolutePosition.Y;
-	
-							local Mapped = self.Library:MapValue(yPos, 0, 1080, 0, 0.5) * 1.5;
-							local Color = Color3.fromHSV((self.Library.CurrentRainbowHue - Mapped) % 1, 0.8, 1);
-	
-							if ColorIdx == 'AccentColorDark' then
-								Color = self.Library:GetDarkerColor(Color);
+		groupbox:AddToggle('Rainbow', { Text = 'Rainbow accent color' }):OnChanged(function(Value)
+			if Value then
+				self.Library:GiveSignal(game:GetService('RunService').RenderStepped:Connect(function(Delta)
+					if Toggles.Rainbow.Value then
+						for Idx, Object in next, self.Library.Registry do
+							for Property, ColorIdx in next, Object.Properties do
+								if ColorIdx == 'AccentColor' or ColorIdx == 'AccentColorDark' then
+									local Instance = Object.Instance;
+									local yPos = Instance.AbsolutePosition.Y;
+			
+									local Mapped = self.Library:MapValue(yPos, 0, 1080, 0, 0.5) * 1.5;
+									local Color = Color3.fromHSV((self.Library.CurrentRainbowHue - Mapped) % 1, 0.8, 1);
+			
+									if ColorIdx == 'AccentColorDark' then
+										Color = self.Library:GetDarkerColor(Color);
+									end;
+			
+									Instance[Property] = Color;
+								end;
 							end;
-	
-							Instance[Property] = Color;
 						end;
 					end;
-				end;
+				end))
+				Toggles.Rainbow.Value = #self.Library.Signals
+			elseif self.Library.Signals[Toggles.Rainbow.Value] then
+				table.remove(self.Library.Signals, Toggles.Rainbow.Value):Disconnect();
+				self:ThemeUpdate();
 			end;
-		end))
+		end);
 		groupbox:AddLabel('Outline color'):AddColorPicker('OutlineColor', { Default = self.Library.OutlineColor });
 		groupbox:AddLabel('Font color')	:AddColorPicker('FontColor', { Default = self.Library.FontColor });
 
@@ -133,11 +134,11 @@ local ThemeManager = {} do
 		groupbox:AddDropdown('ThemeManager_CustomThemeList', { Text = 'Custom themes', Values = self:ReloadCustomThemes(), AllowNull = true, Default = 1 })
 		groupbox:AddInput('ThemeManager_CustomThemeName', { Text = 'Custom theme name' })
 
-		groupbox:AddButton('Load custom theme', function()
-			self:ApplyTheme(Options.ThemeManager_CustomThemeList.Value)
+		groupbox:AddButton('Load custom theme', function() 
+			self:ApplyTheme(Options.ThemeManager_CustomThemeList.Value) 
 		end)
 
-		groupbox:AddButton('Save custom theme', function()
+		groupbox:AddButton('Save custom theme', function() 
 			self:SaveCustomTheme(Options.ThemeManager_CustomThemeName.Value)
 
 			Options.ThemeManager_CustomThemeList.Values = self:ReloadCustomThemes()
@@ -179,7 +180,7 @@ local ThemeManager = {} do
 
 		local data = readfile(path)
 		local success, decoded = pcall(httpService.JSONDecode, httpService, data)
-
+		
 		if not success then
 			return nil
 		end
