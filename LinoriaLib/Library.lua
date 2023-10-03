@@ -2096,6 +2096,7 @@ do
         end;
 
         function Toggle:SetValue(Bool)
+            Bool = (not not Bool);
             if Toggle.Value == Bool then return end;
 
             Toggle.Value = Bool;
@@ -3094,9 +3095,6 @@ function Library:SetWatermark(Text)
 end;
 
 function Library:Notify(Text, Time, SoundId)
-    assert(typeof(time) ~= "Instance" and typeof(time) ~= "number", "2nd argument of the notify function is a invalid type.")
-    --assert(typeof(SoundId) ~= "string" and typeof(SoundId) ~= "number", "3nd argument of the notify function is a invalid type.")
-    
     local XSize, YSize = Library:GetTextBounds(Text, Library.Font, 14);
 
     YSize = YSize + 7
@@ -3814,7 +3812,7 @@ function Library:CreateWindow(...)
         end);
 
         -- This was the first tab added, so we show it by default.
-    Library.TotalTabs = Library.TotalTabs + 1;
+        Library.TotalTabs = Library.TotalTabs + 1;
         if Library.TotalTabs == 1 then
             Tab:ShowTab();
         end;
