@@ -7,7 +7,7 @@ writefile('Bluu/script_key', script_key)
 
 local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
 if queue_on_teleport then
-    queue_on_teleport('loadstring(game:HttpGet(""))()')
+    queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/Neuublue/Bluu/main/Swordburst2.lua"))()')
 end
 
 local SendWebhook do
