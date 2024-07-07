@@ -3,8 +3,6 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 if getgenv().Bluu then return end
 getgenv().Bluu = true
 
-writefile('Bluu/script_key', script_key)
-
 local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
 if queue_on_teleport then
     queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/Neuublue/Bluu/main/Swordburst2.lua"))()')
@@ -158,6 +156,12 @@ local function HumanoidConnection()
         end
     end)
     LinearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
+    task.spawn(function()
+        Function:InvokeServer('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = Equip.Clothing.Value } })
+    end)
+    if Equip.Right.Value ~= 0 then
+        Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = Equip.Left.Value }, 'Left' })
+    end
 end
 HumanoidConnection()
 
@@ -423,18 +427,9 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
 end)
 
 Autowalk:AddToggle('Pathfind', { Text = 'Pathfind' })
-Autowalk:AddLabel('Horizontal offset in Autofarm')
+Autowalk:AddLabel('Remaining settings in Autofarm')
 
 local Killaura = Main:AddRightGroupbox('Killaura')
-
-local KillauraSkill = {
-    Active = false,
-    OnCooldown = false,
-    LastHit = false,
-    Name = 'None',
-    Cost = 0,
-    NormalHitOnCooldown = false
-}
 
 local OnCooldown = {}
 local OldNameCall
@@ -493,29 +488,16 @@ OldNameCall = hookmetamethod(game, '__namecall', function(Self, ...)
                 Animation.Value = Animation.Value == Skill and '' or Skill
                 return
             end
-        elseif Args[1] == 'Equipment' then
-            if Args[2][1] == 'EquipWeapon' then
-                if Args[2][2].Parent ~= nil and Args[2][2].Parent ~= Inventory then
-                    return
-                end
-                Args[2][2] = { Name = 'Elucidator', Value = Args[2][2].Value }
-            elseif Args[2][1] == 'Wear' and ItemDatabase[Args[2][2].Name].Type.Value == 'Clothing' then
-                if Args[2][2].Parent ~= nil and Args[2][2].Parent ~= Inventory then
-                    return
-                end
-                Args[2][2] = { Name = 'Black Novice Armor', Value = Args[2][2].Value }
-            end
         end
     end
     return OldNameCall(Self, ...)
 end)
 
-local function GetItemFromId(Id)
-    if Id ~= 0 then
-        for _, Item in Inventory:GetChildren() do
-            if Item.Value == Id then
-                return Item
-            end
+local function GetItemById(Id)
+    if Id == 0 then return end
+    for _, Item in Inventory:GetChildren() do
+        if Item.Value == Id then
+            return Item
         end
     end
 end
@@ -551,28 +533,35 @@ local function GetItemStat(Item, StatName)
     end
 end
 
-local RightSword = GetItemFromId(Equip.Right.Value)
-local LeftSword = GetItemFromId(Equip.Left.Value)
+local RightSword = GetItemById(Equip.Right.Value)
+local LeftSword = GetItemById(Equip.Left.Value)
+
+local KillauraSkill = {
+    Name = 'None',
+    Cost = 0,
+    Active = false,
+    OnCooldown = false,
+    LastHit = false,
+}
 
 local NormalAttack = {
     Name = 'Block',
     Cost = 5,
-    ActiveTime = 3,
     Active = false,
     LastHit = false
 }
 
-KillauraSkill.GetSword = function(SwordClass)
-    SwordClass = SwordClass or KillauraSkill.Class
-    if RightSword and ItemDatabase[RightSword.Name].Class.Value == SwordClass then
+KillauraSkill.GetSword = function(Class)
+    Class = Class or KillauraSkill.Class
+    if RightSword and ItemDatabase[RightSword.Name].Class.Value == Class then
         KillauraSkill.Sword = RightSword
         return RightSword
-    elseif KillauraSkill.Sword and ItemDatabase[KillauraSkill.Sword.Name].Class.Value == SwordClass then
+    elseif KillauraSkill.Sword and ItemDatabase[KillauraSkill.Sword.Name].Class.Value == Class then
         return KillauraSkill.Sword
     end
     for _, Item in Inventory:GetChildren() do
         local ItemInDatabase = ItemDatabase[Item.Name]
-        if ItemInDatabase.Type.Value == 'Weapon' and ItemInDatabase.Level.Value <= GetLevel() and ItemInDatabase.Class.Value == SwordClass then
+        if ItemInDatabase.Type.Value == 'Weapon' and ItemInDatabase.Class.Value == Class then
             KillauraSkill.Sword = Item
             return Item
         end
@@ -587,93 +576,100 @@ end
 UpdateSwordDamage()
 
 Equip.Right.Changed:Connect(function(Id)
-    if not KillauraSkill.Swapping then
-        RightSword = GetItemFromId(Id)
-        UpdateSwordDamage()
-    end
+    RightSword = GetItemById(Id)
+    UpdateSwordDamage()
 end)
 Equip.Left.Changed:Connect(function(Id)
-    if not KillauraSkill.Swapping then
-        LeftSword = GetItemFromId(Id)
-        UpdateSwordDamage()
-    end
+    LeftSword = GetItemById(Id)
+    UpdateSwordDamage()
 end)
 
 local RPCKey, AttackKey
 local function Attack(Target)
-    if TargetCheck(Target) and Target.Entity.Health:FindFirstChild(LocalPlayer.Name) and KillauraSkill.Name ~= 'None' and not KillauraSkill.OnCooldown and KillauraSkill.Cost <= Entity.Stamina.Value and not KillauraSkill.NormalHitOnCooldown then
-        KillauraSkill.Active, KillauraSkill.OnCooldown = true, true
-        if KillauraSkill.Name == 'Summon Pistol' then
-            Event:FireServer('Skills', { 'UseSkill', KillauraSkill.Name })
-        elseif KillauraSkill.GetSword() then
-            if KillauraSkill.Sword == RightSword then
+    if not NormalAttack.Active then
+        if KillauraSkill.Name ~= 'None' and not KillauraSkill.OnCooldown and KillauraSkill.Cost <= Entity.Stamina.Value
+        and TargetCheck(Target) and Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
+            KillauraSkill.OnCooldown = true
+            KillauraSkill.Active = true
+            if KillauraSkill.Name == 'Summon Pistol' then
                 Event:FireServer('Skills', { 'UseSkill', KillauraSkill.Name })
-            else
-                KillauraSkill.Swapping = true
-                Function:InvokeServer('Equipment', { 'EquipWeapon', KillauraSkill.Sword, 'Right' })
-                Event:FireServer('Skills', { 'UseSkill', KillauraSkill.Name })
-                if RightSword then
-                    task.wait(LocalPlayer:GetNetworkPing() * 1.125)
-                    Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Elucidator', Value = RightSword.Value }, 'Right' })
-                    if LeftSword then
-                        Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Elucidator', Value = LeftSword.Value }, 'Left' })
+            elseif KillauraSkill.GetSword() then
+                if KillauraSkill.Sword == RightSword and not LeftSword then
+                    Event:FireServer('Skills', { 'UseSkill', KillauraSkill.Name })
+                else
+                    local OldRightSword = RightSword
+                    local OldLeftSword = LeftSword
+                    Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = KillauraSkill.Sword.Value }, 'Right' })
+                    Event:FireServer('Skills', { 'UseSkill', KillauraSkill.Name })
+                    if OldRightSword then
+                        task.wait(LocalPlayer:GetNetworkPing() * 1.125)
+                        Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = OldRightSword.Value }, 'Right' })
+                        if OldLeftSword then
+                            Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = OldLeftSword.Value }, 'Left' })
+                        end
                     end
                 end
-                KillauraSkill.Swapping = false
+            else
+                Library:Notify('Get a ' .. KillauraSkill.Class:lower() .. ' first')
+                Options.SkillToUse:SetValue('None')
             end
-        else
-            Library:Notify('Get an equippable '..KillauraSkill.Class:lower()..' first')
-            Options.SkillToUse:SetValue('None')
+            task.spawn(function()
+                task.wait(2.5)
+                KillauraSkill.LastHit = true
+                task.wait(0.5)
+                KillauraSkill.LastHit = false
+                KillauraSkill.Active = false
+                if KillauraSkill.Name == 'Summon Pistol' then
+                    task.wait(1)
+                end
+                KillauraSkill.OnCooldown = false
+            end)
+        elseif not KillauraSkill.Active and Entity.Stamina.Value >= NormalAttack.Cost then
+            Event:FireServer('Skills', { 'UseSkill', 'Block' })
+            NormalAttack.Active = true
+            task.spawn(function()
+                task.wait(2.5)
+                NormalAttack.LastHit = true
+                task.wait(0.5)
+                NormalAttack.LastHit = false
+                NormalAttack.Active = false
+            end)
         end
-        task.spawn(function()
-            task.wait(2.5)
-            KillauraSkill.LastHit = true
-            task.wait(0.5)
-            KillauraSkill.LastHit, KillauraSkill.Active = false, false
-            if KillauraSkill.Name == 'Summon Pistol' then
-                task.wait(1)
-            end
-            KillauraSkill.OnCooldown = false
-        end)
-    elseif not KillauraSkill.Active and not KillauraSkill.NormalHitOnCooldown and Entity.Stamina.Value >= 5 then
-        KillauraSkill.NormalHitOnCooldown = true
-        Event:FireServer('Skills', { 'UseSkill', 'Block' })
-        task.spawn(function()
-            task.wait(3)
-            KillauraSkill.NormalHitOnCooldown = false
-        end)
     end
-    if TargetCheck(Target) then
-        local Threads = 1
-        if Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
-            Threads = Options.KillauraThreads.Value
-            if Toggles.AutomaticThreads.Value
-            and (
-                (KillauraSkill.LastHit or NormalAttack.LastHit)
-                or (Target.Entity:FindFirstChild('HitLives') and Target.Entity.HitLives.Value <= 3)
-                or (
-                    Target.Entity.Health.Value / (
-                        KillauraSkill.Active and (
-                            KillauraSkill.Name == 'Sweeping Strike' and math.ceil(SwordDamage * 3)
-                            or KillauraSkill.Name == 'Leaping Slash' and math.ceil(SwordDamage * 3.3)
-                            or KillauraSkill.Name == 'Summon Pistol' and math.ceil(SwordDamage * 4.35)
-                        )
-                        or math.round(SwordDamage)
-                    ) <= 3
-                )
-            ) then
-                Threads = 3
-            end
-        end
-        for _ = 1, Threads do
-            Event:FireServer('Combat', RPCKey, { 'Attack', Target, KillauraSkill.Active and KillauraSkill.Name or 'Block', AttackKey }, true)
-        end
-        OnCooldown[Target] = true
-        task.spawn(function()
-            task.wait(Threads * Options.KillauraDelay.Value)
-            OnCooldown[Target] = nil
-        end)
+
+    if not TargetCheck(Target) then
+        return
     end
+
+    local Threads = 1
+    if Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
+        Threads = Options.KillauraThreads.Value
+        if Toggles.AutomaticThreads.Value
+        and (
+            (KillauraSkill.LastHit or NormalAttack.LastHit)
+            or (Target.Entity:FindFirstChild('HitLives') and Target.Entity.HitLives.Value <= 3)
+            or (
+                Target.Entity.Health.Value / (
+                    KillauraSkill.Active and (
+                        KillauraSkill.Name == 'Sweeping Strike' and math.ceil(SwordDamage * 3)
+                        or KillauraSkill.Name == 'Leaping Slash' and math.ceil(SwordDamage * 3.3)
+                        or KillauraSkill.Name == 'Summon Pistol' and math.ceil(SwordDamage * 4.35)
+                    )
+                    or math.round(SwordDamage)
+                ) <= 3
+            )
+        ) then
+            Threads = 3
+        end
+    end
+    for _ = 1, Threads do
+        Event:FireServer('Combat', RPCKey, { 'Attack', Target, KillauraSkill.Active and KillauraSkill.Name or 'Block', AttackKey }, true)
+    end
+    OnCooldown[Target] = true
+    task.spawn(function()
+        task.wait(Threads * Options.KillauraDelay.Value)
+        OnCooldown[Target] = nil
+    end)
 end
 
 
@@ -931,27 +927,20 @@ task.spawn(function()
     Options.Teleports:SetValues()
 end)
 
-local Services
-while not Services do
-    for _, MainModule in (getloadedmodules or getnilinstances)() do
-        if MainModule.Name == 'MainModule' then
-            Services = MainModule.Services
-            break
+local Services = (function()
+    while true do
+        for _, MainModule in (getloadedmodules or getnilinstances)() do
+            if MainModule.Name == 'MainModule' then
+                return MainModule.Services
+            end
         end
+        task.wait()
     end
-    task.wait()
-end
-
+end)()
 
 local CombatService = require(Services.Combat)
-if CombatService.DealDamage then
-    RPCKey = debug.getupvalue(CombatService.DealDamage, 2)
-    AttackKey = debug.getconstant(CombatService.DealDamage, 5)
-else
-    RPCKey = debug.getupvalue(CombatService.DamageArea, 5)
-    AttackKey = debug.getconstant(CombatService.DamageArea, 21)
-end
-
+RPCKey = debug.getupvalue(CombatService.DealDamage, 2)
+AttackKey = debug.getconstant(CombatService.DealDamage, 5)
 
 local HitEffects = workspace:WaitForChild('HitEffects')
 AdditionalCheats:AddDropdown('PerformanceBoosters', {
@@ -1194,7 +1183,8 @@ local PlayersBox = Misc:AddRightGroupbox('Players')
 
 local Player
 
-local GetInventoryData = require(Services.UI.Inventory).GetInventoryData
+local InventoryUI = require(Services.UI.Inventory)
+local GetInventoryData = InventoryUI.GetInventoryData
 
 PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, AllowNull = true }):OnChanged(function()
     if Options.PlayerList.Value then
@@ -1487,10 +1477,55 @@ Misc1:AddToggle('StretchChat', { Text = 'Stretch chat' }):OnChanged(function()
     end
 end)
 
-Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' }):OnChanged(function()
-    LocalPlayer.CameraMaxZoomDistance = Toggles.InfiniteZoomDistance.Value and math.huge or 15
-    LocalPlayer.DevCameraOcclusionMode = Toggles.InfiniteZoomDistance.Value and 1 or 0
+Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' }):OnChanged(function(Value)
+    LocalPlayer.CameraMaxZoomDistance = Value and math.huge or 15
+    LocalPlayer.DevCameraOcclusionMode = Value and 1 or 0
 end)
+
+Misc1:AddToggle('ItemLevelBypass', { Text = 'Item level bypass' })
+
+local OldHasRequiredLevel = InventoryUI.HasRequiredLevel
+InventoryUI.HasRequiredLevel = function(...)
+    if not Toggles.ItemLevelBypass.Value then
+        return OldHasRequiredLevel(...)
+    end
+
+    local Item = ...
+    if Item.Type.Value == 'Weapon' or Item.Type.Value == 'Clothing' then
+        return true
+    end
+
+    return OldHasRequiredLevel(...)
+end
+
+local OldItemAction = InventoryUI.itemAction
+InventoryUI.itemAction = function(...)
+    if not Toggles.ItemLevelBypass.Value then
+        return OldItemAction(...)
+    end
+
+    local ItemContainer, Action = ...
+    if ItemContainer.Type == 'Weapon' and (Action == 'Equip Right' or Action == 'Equip Left') then
+        if ItemContainer.class == '1HSword' then
+            ItemContainer.item = {
+                Name = 'Steel Longsword',
+                Value = ItemContainer.item.Value
+            }
+        else
+            ItemContainer.item = {
+                Name = 'Steel Katana',
+                Value = ItemContainer.item.Value
+            }
+        end
+    elseif ItemContainer.Type == 'Clothing' and Action == 'Wear' then
+        ItemContainer.item = {
+            Name = 'Black Novice Armor',
+            Value = ItemContainer.item.Value
+        }
+    end
+
+    return OldItemAction(...)
+end
 
 local SwingCheats = Misc:AddRightGroupbox('Swing cheats (can break damage)')
 
@@ -1742,15 +1777,6 @@ Event.OnClientEvent:Connect(function(...)
         end
     end
 end)
-
-local Secrets = Crystals:AddRightGroupbox('Secrets')
-Secrets:AddButton({
-    Text = 'Level bypass',
-    Func = function()
-        Exp.Value = 2000001 ^ 3
-    end,
-    DoubleClick = true
-})
 
 local Settings = Window:AddTab('Settings')
 
