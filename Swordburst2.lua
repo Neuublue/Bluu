@@ -306,10 +306,10 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
     end
 end)
 
-Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = Inf)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
+Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 20, Min = -20, Max = 60, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 0, Suffix = 'm' })
-Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = Inf)', Default = 1000, Min = 0, Max = 10000, Rounding = 0, Suffix = 'm' }):OnChanged(function(Value)
+Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 1000, Min = 0, Max = 10000, Rounding = 0, Suffix = 'm' }):OnChanged(function(Value)
     if Value == 0 then
         Options.AutofarmRadius.Value = math.huge
     end
@@ -696,10 +696,10 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
     end
 end)
 
-Killaura:AddSlider('KillauraDelay', { Text = 'Delay (under 0.3 breaks damage)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
+Killaura:AddSlider('KillauraDelay', { Text = 'Delay (breaks damage under 0.3)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
 Killaura:AddSlider('KillauraThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
 Killaura:AddToggle('AutomaticThreads', { Text = 'Automatic threads' })
-Killaura:AddSlider('KillauraRange', { Text = 'Range', Default = 60, Min = 0, Max = 120, Rounding = 0, Suffix = 'm' })
+Killaura:AddSlider('KillauraRange', { Text = 'Range', Default = 100, Min = 0, Max = 200, Rounding = 0, Suffix = 'm' })
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
 Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, AllowNull = true })
 
@@ -1482,11 +1482,11 @@ Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' }):OnC
     LocalPlayer.DevCameraOcclusionMode = Value and 1 or 0
 end)
 
-Misc1:AddToggle('ItemLevelBypass', { Text = 'Item level bypass' })
+Misc1:AddToggle('WeaponAndArmorLevelBypass', { Text = 'Weapon and armor level bypass' })
 
 local OldHasRequiredLevel = InventoryUI.HasRequiredLevel
 InventoryUI.HasRequiredLevel = function(...)
-    if not Toggles.ItemLevelBypass.Value then
+    if not Toggles.WeaponAndArmorLevelBypass.Value then
         return OldHasRequiredLevel(...)
     end
 
@@ -1500,7 +1500,7 @@ end
 
 local OldItemAction = InventoryUI.itemAction
 InventoryUI.itemAction = function(...)
-    if not Toggles.ItemLevelBypass.Value then
+    if not Toggles.WeaponAndArmorLevelBypass.Value then
         return OldItemAction(...)
     end
 
