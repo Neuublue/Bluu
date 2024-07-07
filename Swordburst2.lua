@@ -841,8 +841,8 @@ AdditionalCheats:AddDropdown('Teleports', { Text = 'Teleports', Values = { 'Spaw
         if Options.Teleports.Value == 'Spawn' then
             Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
         elseif Teleports[Options.Teleports.Value] then
-            firetouchinterest(HumanoidRootPart, Teleports[Options.Teleports.Value], false)
-            firetouchinterest(HumanoidRootPart, Teleports[Options.Teleports.Value], true)
+            firetouchinterest(HumanoidRootPart, Teleports[Options.Teleports.Value], getexecutorname and getexecutorname():find('Wave') and false or 0)
+            firetouchinterest(HumanoidRootPart, Teleports[Options.Teleports.Value], getexecutorname and getexecutorname():find('Wave') and true or 1)
         end
         Options.Teleports:SetValue()
     end
