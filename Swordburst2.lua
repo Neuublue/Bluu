@@ -155,10 +155,13 @@ local function HumanoidConnection()
             HumanoidRootPart.Anchored = false
         end
     end)
+
     LinearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
+
     task.spawn(function()
         Function:InvokeServer('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = Equip.Clothing.Value } })
     end)
+
     if Equip.Right.Value ~= 0 then
         Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = Equip.Left.Value }, 'Left' })
     end
@@ -502,35 +505,45 @@ local function GetItemById(Id)
     end
 end
 
-local function GetItemStat(Item, StatName)
-    StatName = StatName or 'Damage'
+local function GetItemStat(Item)
+    local Upgrade = Item:FindFirstChild('Upgrade') and Item.Upgrade.Value or 0
+
     local ItemInDatabase = ItemDatabase[Item.Name]
+
     local Stats = ItemInDatabase:FindFirstChild('Stats')
-    if Stats then
-        local Stat = Stats:FindFirstChild(StatName)
-        if Stat then
-            Stat = Stat.Value
-            if Item:FindFirstChild('Upgrade') and ItemInDatabase:FindFirstChild('Rarity') then
-                local MaxUpgrade, DamageUpgrade
-                if ItemInDatabase.Rarity == 'Burst' then
-                    MaxUpgrade = 25
-                    DamageUpgrade = 1.5
-                elseif ItemInDatabase.Rarity == 'Legendary' or ItemInDatabase.Rarity == 'Tribute' then
-                    MaxUpgrade = 20
-                    DamageUpgrade = 1
-                elseif ItemInDatabase.Rarity == 'Rare' then
-                    MaxUpgrade = 15
-                    DamageUpgrade = 0.6
-                else
-                    MaxUpgrade = 10
-                    DamageUpgrade = 0.4
-                end
-                DamageUpgrade = Stats:FindFirstChild('DamageUpgrade') and Stats.DamageUpgrade.Value or DamageUpgrade
-                Stat = math.floor(Stat + (MaxUpgrade and Item.Upgrade.Value / MaxUpgrade * DamageUpgrade * Stat or 0))
-            end
-            return Stat
+    if not Stats then return end
+
+    local Stat = Stats:FindFirstChild('Damage') or Stats:FindFirstChild('Defense')
+    if not Stat then return end
+
+    local BaseStat = Stat.Value
+
+    local ScaleByLevel = ItemInDatabase:FindFirstChild('ScaleByLevel')
+    if ScaleByLevel then
+        BaseStat = BaseStat * ScaleByLevel.Value * GetLevel()
+    end
+
+    if Upgrade == 0 then return BaseStat end
+
+    local Rarity = ItemInDatabase.Rarity
+
+    local MaxUpgrade =
+        (Rarity == 'Common' or Rarity == 'Uncommon') and 10
+        or Rarity == 'Rare' and 15
+        or Rarity == 'Legendary' and 20
+        or Rarity == 'Tribute' and 20
+        or Rarity == 'Burst' and 25
+        or nil
+
+    local MaxUpgradeAmount = 0.4
+    if Stat.Name == 'Damage' then
+        MaxUpgradeAmount = MaxUpgrade == 25 and 1.5 or MaxUpgrade == 20 and 1 or MaxUpgrade == 15 and 0.6 or 0.4
+        if Stats:FindFirstChild('DamageUpgrade') then
+            MaxUpgradeAmount = Stats.DamageUpgrade.Value or MaxUpgradeAmount
         end
     end
+
+    return math.floor(BaseStat + (MaxUpgrade and Upgrade / MaxUpgrade * MaxUpgradeAmount * BaseStat or 0))
 end
 
 local RightSword = GetItemById(Equip.Right.Value)
@@ -988,47 +1001,54 @@ UiService.ServerEvent = function(...)
     return UIServerEvent(...)
 end -- hook
 
-local function EquipBestWeaponAndArmor()
-    if Toggles.EquipBestWeaponAndArmor.Value then
-        local BestWeapon
-        local BestClothing
-        local BestAttack = 0
-        local BestDefense = 0
-        local CurrentLevel = GetLevel()
-        for _, Item in Inventory:GetChildren() do
-            local ItemInDatabase = ItemDatabase[Item.Name]
-            if ItemInDatabase:FindFirstChild('Class') and ItemInDatabase:FindFirstChild('Level') and ItemInDatabase.Level.Value <= CurrentLevel then
-                local Stats = ItemInDatabase:FindFirstChild('Stats')
-                local NeededStat
-                if Stats then
-                    NeededStat = Stats:FindFirstChild('Damage') or Stats:FindFirstChild('Defense')
-                end
-                if NeededStat then
-                    local Stat = GetItemStat(Item, NeededStat.Name)
-                    if NeededStat.Name == 'Damage' then
-                        if Stat > BestAttack then
-                            BestAttack = Stat
-                            BestWeapon = Item
-                        end
-                    elseif Stat > BestDefense then
-                        BestDefense = Stat
-                        BestClothing = Item
-                    end
-                end
+local function EquipBestArmorAndWeapon()
+    if not Toggles.EquipBestArmorAndWeapon.Value then
+        return
+    end
+
+    local HighestDefense = 0
+    local HighestDamage = 0
+    local BestArmor, BestWeapon
+
+    for _, Item in Inventory:GetChildren() do
+        local ItemInDatabase = ItemDatabase[Item.Name]
+
+        if not Toggles.WeaponAndArmorLevelBypass.Value
+        and (ItemInDatabase:FindFirstChild('Level') and ItemInDatabase.Level.Value or 0) > GetLevel() then
+            continue
+        end
+
+        local Type = ItemInDatabase.Type.Value
+
+        if Type == 'Clothing' then
+            local Defense = GetItemStat(Item)
+            if Defense > HighestDefense then
+                HighestDefense = Defense
+                BestArmor = Item
+            end
+        elseif Type == 'Weapon' then
+            local Damage = GetItemStat(Item)
+            if Damage > HighestDamage then
+                HighestDamage = Damage
+                BestWeapon = Item
             end
         end
-        if BestWeapon and Equip.Right.Value ~= BestWeapon.Value and (not RightSword or ItemDatabase[RightSword.Name].Level.Value <= CurrentLevel) then
-            Function:InvokeServer('Equipment', { 'EquipWeapon', BestWeapon, 'Right' })
-        end
-        if BestClothing and Equip.Clothing.Value ~= BestClothing then
-            Function:InvokeServer('Equipment', { 'Wear', BestClothing })
-        end
+    end
+
+    if BestArmor and Equip.Clothing.Value ~= BestArmor.Value then
+        task.spawn(function()
+            Function:InvokeServer('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = BestArmor.Value } })
+        end)
+    end
+
+    if BestWeapon and Equip.Right.Value ~= BestWeapon.Value then
+        Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = BestWeapon.Value }, 'Right' })
     end
 end
 
-AdditionalCheats:AddToggle('EquipBestWeaponAndArmor', { Text = 'Equip best weapon and armor' }):OnChanged(EquipBestWeaponAndArmor)
-Inventory.ChildAdded:Connect(EquipBestWeaponAndArmor)
-Level.Changed:Connect(EquipBestWeaponAndArmor)
+AdditionalCheats:AddToggle('EquipBestArmorAndWeapon', { Text = 'Equip best armor and weapon' }):OnChanged(EquipBestArmorAndWeapon)
+Inventory.ChildAdded:Connect(EquipBestArmorAndWeapon)
+Level.Changed:Connect(EquipBestArmorAndWeapon)
 
 local KickBox = Main:AddLeftTabbox()
 
@@ -1113,7 +1133,7 @@ Level.Changed:Connect(function()
     end
 end)
 FarmingKicks:AddToggle('LevelKick', { Text = 'Level kick' })
-FarmingKicks:AddSlider('KickLevel', { Text = 'Kick level', Default = 130, Min = 0, Max = 250, Rounding = 0, Compact = true })
+FarmingKicks:AddSlider('KickLevel', { Text = 'Kick level', Default = 130, Min = 0, Max = 400, Rounding = 0, Compact = true })
 
 Profile:WaitForChild('Skills').ChildAdded:Connect(function(Skill)
     if Toggles.SkillKick.Value then
