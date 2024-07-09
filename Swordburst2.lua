@@ -939,7 +939,7 @@ local Services = (function()
 end)()
 
 local CombatService = require(Services.Combat)
-RPCKey = debug.getupvalue(CombatService.DealDamage, 2)
+RPCKey = debug.getupvalue(CombatService.DealDamage, 2) or { '\204', '\214', '\177', '\251' }
 AttackKey = debug.getconstant(CombatService.DealDamage, 5)
 
 local HitEffects = workspace:WaitForChild('HitEffects')
