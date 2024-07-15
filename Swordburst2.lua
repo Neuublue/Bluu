@@ -86,32 +86,19 @@ LocalPlayer.Idled:Connect(function()
     game:GetService('VirtualUser'):ClickButton2(Vector2.new())
 end)
 
-local function WaitForPath(Target, Path, Timeout)
-    if typeof(Target) ~= 'Instance' then
-        error('Argument 1 is not a valid Instance')
-    elseif typeof(Path) ~= 'string' then
-        error('Argument 2 is not a valid string')
-    elseif typeof(Timeout) ~= 'nil' and typeof(Timeout) ~= 'number' then
-        error('Argument 3 is not a valid number')
+local Services = (function()
+    while true do
+        for _, MainModule in (getloadedmodules or getnilinstances)() do
+            if MainModule.Name ~= 'MainModule' then continue end
+            return MainModule:WaitForChild('Services')
+        end
+        task.wait()
     end
-
-	local Start = tick()
-    local Latest
-	for _, Segment in string.split(Path, '.') do
-        Latest = Target:WaitForChild(Segment, Timeout and Start + Timeout - tick())
-		if not Latest then
-			return
-		end
-        Target = Latest
-	end
-	return Latest
-end
-
-local RunAnimation = WaitForPath(game:GetService('StarterPlayer'), 'StarterCharacterScripts.Animate.Packs.SingleSword.Running')
+end)()
 
 local repo = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/'
 
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local Library = isfolder('LinoriaLib') and loadfile('LinoriaLib/Library.lua') or loadstring(game:HttpGet(repo .. 'Library.lua'))()
 
 local Window = Library:CreateWindow({
     Title = 'Bluu | Swordburst 2',
@@ -132,28 +119,28 @@ local Autofarm = Farming:AddTab('Autofarm')
 local LinearVelocity = Instance.new('LinearVelocity')
 LinearVelocity.MaxForce = math.huge
 
-local RunAnimationTrack = Humanoid:LoadAnimation(RunAnimation)
 local WaypointIndex = 1
 
 local function HumanoidConnection()
     Humanoid.Died:Connect(function()
-        if Toggles.DisableOnDeath.Value then
-            if Toggles.Autofarm.Value then
-                Toggles.Autofarm:SetValue(false)
-                if Toggles.Killaura.Value then
-                    Toggles.Killaura:SetValue(false)
-                end
-            end
-        end
+        if not Toggles.DisableOnDeath.Value then return end
+
+        if not Toggles.Autofarm.Value then return end
+        Toggles.Autofarm:SetValue(false)
+
+        if not Toggles.Killaura.Value then return end
+        Toggles.Killaura:SetValue(false)
     end)
+
+    Humanoid.TargetPoint = Vector3.new(1, 100, 100)
+
     Humanoid.MoveToFinished:Connect(function(Reached)
         WaypointIndex += 1
     end)
-    RunAnimationTrack = Humanoid:LoadAnimation(RunAnimation)
+
     HumanoidRootPart:GetPropertyChangedSignal('Anchored'):Connect(function()
-        if HumanoidRootPart.Anchored then
-            HumanoidRootPart.Anchored = false
-        end
+        if not HumanoidRootPart.Anchored then return end
+        HumanoidRootPart.Anchored = false
     end)
 
     LinearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
@@ -166,6 +153,7 @@ local function HumanoidConnection()
         Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = Equip.Left.Value }, 'Left' })
     end
 end
+
 HumanoidConnection()
 
 LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
@@ -177,26 +165,20 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
 end)
 
 local function TargetCheck(Target)
-    return (
-        Target
-        and Target.Parent
-        and Target:FindFirstChild('HumanoidRootPart')
-        and Target:FindFirstChild('Entity')
-        and Target.Entity:FindFirstChild('Health')
-        and Target.Entity.Health.Value > 0
-        and (
-            not Target.Entity:FindFirstChild('HitLives')
-            or Target.Entity.HitLives.Value > 0
-        )
-    )
+    return Target
+    and Target.Parent
+    and Target:FindFirstChild('HumanoidRootPart')
+    and Target:FindFirstChild('Entity')
+    and Target.Entity:FindFirstChild('Health')
+    and Target.Entity.Health.Value > 0
+    and (not Target.Entity:FindFirstChild('HitLives') or Target.Entity.HitLives.Value > 0)
 end
 
 local function LerpToggle(ChangedToggle)
     if ChangedToggle and ChangedToggle.Value then
         for _, Toggle in { Toggles.Autofarm, Toggles.Fly, Toggles.GoToPlayer, Toggles.Autowalk } do
-            if Toggle ~= ChangedToggle then
-                Toggle:SetValue(false)
-            end
+            if Toggle == ChangedToggle then continue end
+            Toggle:SetValue(false)
         end
     end
     LinearVelocity.Parent = ChangedToggle and ChangedToggle.Value and workspace or nil
@@ -205,15 +187,13 @@ end
 local NoclipConnection
 local function NoclipToggle(ChangedToggle)
     if ChangedToggle and ChangedToggle.Value then
-        if not NoclipConnection then
-            NoclipConnection = RunService.Stepped:Connect(function()
-                for _, Child in Character:GetChildren() do
-                    if Child:IsA('BasePart') then
-                        Child.CanCollide = false
-                    end
-                end
-            end)
-        end
+        if NoclipConnection then return end
+        NoclipConnection = RunService.Stepped:Connect(function()
+            for _, Child in Character:GetChildren() do
+                if not Child:IsA('BasePart') then continue end
+                Child.CanCollide = false
+            end
+        end)
     elseif NoclipConnection then
         NoclipConnection:Disconnect()
         NoclipConnection = nil
@@ -240,18 +220,16 @@ WaypointLabel.Text = 'Waypoint position'
 WaypointLabel.TextWrapped = false
 WaypointLabel.Parent = WaypointBillboard
 
-local Control = { W = 0, S = 0, D = 0, A = 0 }
+local Controls = { W = 0, S = 0, D = 0, A = 0 }
 
 UserInputService.InputBegan:Connect(function(Key, GameProcessed)
-    if not GameProcessed and Control[Key.KeyCode.Name] then
-        Control[Key.KeyCode.Name] = 1
-    end
+    if not (not GameProcessed and Controls[Key.KeyCode.Name]) then return end
+    Controls[Key.KeyCode.Name] = 1
 end)
 
 UserInputService.InputEnded:Connect(function(Key, GameProcessed)
-    if not GameProcessed and Control[Key.KeyCode.Name] then
-        Control[Key.KeyCode.Name] = 0
-    end
+    if not (not GameProcessed and Controls[Key.KeyCode.Name]) then return end
+    Controls[Key.KeyCode.Name] = 0
 end)
 
 Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
@@ -260,62 +238,86 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
     local TargetRefreshTick, Target = 0
     while Toggles.Autofarm.Value do
         local DeltaTime = task.wait()
-        if Humanoid.Health > 0 then
-            if tick() - TargetRefreshTick > 0.15 then
-                Target = nil
-                local Distance = Options.AutofarmRadius.Value
-                local PrioritizedDistance = Distance
-                for _, Mob in Mobs:GetChildren() do
-                    if TargetCheck(Mob) and not Options.IgnoreMobs.Value[Mob.Name] and (
-                        not Toggles.UseWaypoint.Value
-                        or (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude < Options.AutofarmRadius.Value
-                    ) then
-                        local NewDistance = (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
-                        if Options.PrioritizeMobs.Value[Mob.Name] then
-                            if NewDistance < PrioritizedDistance then
-                                PrioritizedDistance, Target = NewDistance, Mob
-                            end
-                        elseif not (Target and Options.PrioritizeMobs.Value[Target.Name]) then
-                            if NewDistance < Distance then
-                                Distance, Target = NewDistance, Mob
-                            end
-                        end
+
+        if not (Humanoid.Health > 0) then continue end
+
+        if not (Controls.D - Controls.A == 0 and Controls.S - Controls.W == 0) then
+            local FlySpeed = 80 -- math.max(Humanoid.WalkSpeed, 60)
+            local TargetPosition = Camera.CFrame.Rotation
+            * Vector3.new(Controls.D - Controls.A, 0, Controls.S - Controls.W)
+            * FlySpeed
+            * DeltaTime
+            HumanoidRootPart.CFrame += TargetPosition
+            * math.clamp(DeltaTime * FlySpeed / TargetPosition.Magnitude, 0, 1)
+            continue
+        end
+
+        if tick() - TargetRefreshTick > 0.15 then
+            Target = nil
+            local Distance = Options.AutofarmRadius.Value
+            local PrioritizedDistance = Distance
+            for _, Mob in Mobs:GetChildren() do
+                if Options.IgnoreMobs.Value[Mob.Name] then continue end
+                if not TargetCheck(Mob) then continue end
+                if Toggles.UseWaypoint.Value and (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude > Options.AutofarmRadius.Value then continue end
+
+                local NewDistance = (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+                if Options.PrioritizeMobs.Value[Mob.Name] then
+                    if NewDistance < PrioritizedDistance then
+                        PrioritizedDistance = NewDistance
+                        Target = Mob
+                    end
+                elseif not (Target and Options.PrioritizeMobs.Value[Target.Name]) then
+                    if NewDistance < Distance then
+                        Distance = NewDistance
+                        Target = Mob
                     end
                 end
-                TargetRefreshTick = tick()
             end
-            if not (Control.D - Control.A == 0 and Control.S - Control.W == 0) then
-                local TargetPosition = (Camera.CFrame.Rotation * Vector3.new(Control.D - Control.A, 0, Control.S - Control.W)) * 60 * DeltaTime
-                HumanoidRootPart.CFrame += TargetPosition * math.clamp(DeltaTime * 60 / (TargetPosition).Magnitude, 0, 1)
-            elseif Target then
-                if not TargetCheck(Target) or Options.IgnoreMobs.Value[Target.Name] then
-                    TargetRefreshTick = 0
-                else
-                    local TargetPosition = Target.HumanoidRootPart.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
-                    if Options.AutofarmHorizontalOffset and Options.AutofarmHorizontalOffset.Value > 0 then
-                        local Difference = HumanoidRootPart.CFrame.Position - Target.HumanoidRootPart.CFrame.Position
-                        Difference -= Vector3.new(0, Difference.Y, 0)
-                        if Difference.Magnitude ~= 0 then
-                            TargetPosition += Difference.Unit * Options.AutofarmHorizontalOffset.Value
-                        end
-                    end
-                    HumanoidRootPart.CFrame = HumanoidRootPart.CFrame.Rotation * CFrame.Angles(0, Options.AutofarmSpeed.Value == 0 and math.pi/4 or 0, 0) + HumanoidRootPart.CFrame.Position:Lerp(
-                        TargetPosition,
-                        math.clamp(DeltaTime * (Options.AutofarmSpeed.Value == 0 and math.huge or Options.AutofarmSpeed.Value) / (TargetPosition - HumanoidRootPart.CFrame.Position).Magnitude, 0, 1)
-                    )
-                end
+            TargetRefreshTick = tick()
+        end
+
+        if not Target then continue end
+
+        if not TargetCheck(Target) or Options.IgnoreMobs.Value[Target.Name] then
+            TargetRefreshTick = 0
+            continue
+        end
+
+        local TargetPosition = Target.HumanoidRootPart.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
+
+        if Options.AutofarmHorizontalOffset.Value > 0 then
+            local Difference = HumanoidRootPart.CFrame.Position - Target.HumanoidRootPart.CFrame.Position
+            Difference -= Vector3.new(0, Difference.Y, 0)
+            if Difference.Magnitude ~= 0 then
+                TargetPosition += Difference.Unit * Options.AutofarmHorizontalOffset.Value
             end
         end
+
+        local Difference = TargetPosition - HumanoidRootPart.CFrame.Position
+        local Distance = Difference.Magnitude
+        if Distance == 0 then continue end
+        local Direction = Difference.Unit
+        local Speed = Options.AutofarmSpeed.Value
+        local Alpha = math.clamp(DeltaTime * Speed / Distance, 0, 1)
+
+        HumanoidRootPart.CFrame += (Direction * Distance * Alpha)
+
+        -- if Options.AutofarmSpeed.Value == math.huge then
+        --     HumanoidRootPart.CFrame *= CFrame.Angles(0, math.pi / 4, 0)
+        -- end
     end
 end)
 
-Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
+Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' }):OnChanged(function(Value)
+    if Value ~= 0 then return end
+    Options.AutofarmSpeed.Value = math.huge
+end)
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 20, Min = -20, Max = 60, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 1000, Min = 0, Max = 10000, Rounding = 0, Suffix = 'm' }):OnChanged(function(Value)
-    if Value == 0 then
-        Options.AutofarmRadius.Value = math.huge
-    end
+    if Value ~= 0 then return end
+    Options.AutofarmRadius.Value = math.huge
 end)
 Autofarm:AddToggle('UseWaypoint', { Text = 'Use waypoint' }):OnChanged(function(Value)
     Waypoint.CFrame = HumanoidRootPart.CFrame
@@ -341,13 +343,9 @@ local MobList = {
     [542351431] = { 'Frenzy Boar', 'Hermit Crab', 'Wolf', 'Bear', 'Earthen Crab', 'Earthen Boar', 'Crimsonite', 'Ruin Knight', 'Draconite', 'Ruined Kobold Knight', 'Ruin Kobold Knight', 'Dire Wolf', 'Ruined Kobold Lord', 'Rahjin the Thief King' }
 }
 
-MobList = MobList[game.PlaceId]
-if MobList then
-    for _, Chest in { 'Wood Chest', 'Iron Chest', 'Gold Chest' } do
-        table.insert(MobList, Chest)
-    end
-else
-    MobList = {}
+MobList = MobList[game.PlaceId] or {}
+for _, Chest in { 'Wood Chest', 'Iron Chest', 'Gold Chest' } do
+    table.insert(MobList, Chest)
 end
 
 Autofarm:AddDropdown('PrioritizeMobs', { Text = 'Prioritize mobs', Values = MobList, Multi = true, AllowNull = true })
@@ -355,81 +353,112 @@ Autofarm:AddDropdown('IgnoreMobs', { Text = 'Ignore mobs', Values = MobList, Mul
 
 Autofarm:AddToggle('DisableOnDeath', { Text = 'Disable on death' })
 
-local Autowalk = Farming:AddTab('Autowalk')
-
-
-Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
-    RunAnimationTrack:Stop()
-    LerpToggle(Toggles.Autowalk)
-    LinearVelocity.Parent = nil
-    local Path, Waypoints = game:GetService('PathfindingService'):CreatePath({ AgentRadius = 3, AgentHeight = 6 }), {}
-    local TargetRefreshTick, RefreshingTarget, Target = 0, false
-    while Toggles.Autowalk.Value do
-        if Humanoid.Health > 0 then
-            if not RefreshingTarget and tick() - TargetRefreshTick > 0.15 then
-                RefreshingTarget = true
-                task.spawn(function()
-                    Target = nil
-                    local Distance = Options.AutofarmRadius.Value
-                    local PrioritizedDistance = Distance
-                    for _, Mob in Mobs:GetChildren() do
-                        if TargetCheck(Mob) and not Options.IgnoreMobs.Value[Mob.Name] and (
-                            not Toggles.UseWaypoint.Value
-                            or (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude < Options.AutofarmRadius.Value
-                        ) then
-                            local NewDistance = (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
-                            if Options.PrioritizeMobs.Value[Mob.Name] then
-                                if NewDistance < PrioritizedDistance then
-                                    PrioritizedDistance, Target = NewDistance, Mob
-                                end
-                            elseif not (Target and Options.PrioritizeMobs.Value[Target.Name]) then
-                                if NewDistance < Distance then
-                                    Distance, Target = NewDistance, Mob
-                                end
-                            end
-                        end
-                    end
-                    if Target then
-                        local TargetPosition = Target.HumanoidRootPart.CFrame.Position
-                        if Options.AutofarmHorizontalOffset and Options.AutofarmHorizontalOffset.Value > 0 then
-                            local Difference = HumanoidRootPart.CFrame.Position - Target.HumanoidRootPart.CFrame.Position
-                            Difference -= Vector3.new(0, Difference.Y, 0)
-                            if Difference.Magnitude ~= 0 then
-                                TargetPosition += Difference.Unit * Options.AutofarmHorizontalOffset.Value
-                            end
-                        end
-                        if Toggles.Pathfind.Value then
-                            Path:ComputeAsync(HumanoidRootPart.CFrame.Position, TargetPosition)
-                            if Path.Status == Enum.PathStatus.Success then
-                                Waypoints = Path:GetWaypoints()
-                            else
-                                Waypoints = { HumanoidRootPart.CFrame, { Position = TargetPosition } }
-                            end
-                        else
-                            Waypoints = { HumanoidRootPart.CFrame, { Position = TargetPosition } }
-                        end
-                    else
-                        Waypoints = {}
-                    end
-                    WaypointIndex = 1
-                    TargetRefreshTick = tick()
-                    RefreshingTarget = false
-                end)
-            end
-            if (Control.D - Control.A == 0 and Control.S - Control.W == 0) and Waypoints[WaypointIndex + 1] then
-                Humanoid:MoveTo(Waypoints[WaypointIndex + 1].Position)
-                if not RunAnimationTrack.IsPlaying then
-                    RunAnimationTrack:Play()
-                end
-            elseif RunAnimationTrack.IsPlaying then
-                RunAnimationTrack:Stop()
+local Animate = (function()
+    while true do
+        for _, Connection in getconnections(game:GetService('RunService').Stepped) do
+            local Function = Connection.Function
+            if Function and debug.info(Function, 's'):find('Animate') then
+                return Function
             end
         end
         task.wait()
     end
+end)()
+
+local AnimateConstantsModified = false
+local function SetWalkingAnimation(Value)
+    if AnimateConstantsModified == Value then return end
+    debug.setconstant(Animate, 18, Value and 'TargetPoint' or 'MoveDirection')
+    debug.setconstant(Animate, 19, Value and 'X' or 'magnitude')
+    AnimateConstantsModified = Value
+end
+
+local Autowalk = Farming:AddTab('Autowalk')
+
+Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
+    LerpToggle(Toggles.Autowalk)
+    LinearVelocity.Parent = nil
+    local Path, Waypoints = game:GetService('PathfindingService'):CreatePath({ AgentRadius = 3, AgentHeight = 6 }), {}
+    local TargetRefreshTick, Target = 0, false
+    while Toggles.Autowalk.Value do
+        task.wait()
+
+        if not (Humanoid.Health > 0) then continue end
+
+        if not (Controls.D - Controls.A == 0 and Controls.S - Controls.W == 0) then
+            SetWalkingAnimation(false)
+            continue
+        end
+
+        if tick() - TargetRefreshTick > 0.15 then
+            Target = nil
+            local Distance = Options.AutofarmRadius.Value
+            local PrioritizedDistance = Distance
+            for _, Mob in Mobs:GetChildren() do
+                if Options.IgnoreMobs.Value[Mob.Name] then continue end
+                if not TargetCheck(Mob) then continue end
+                if Toggles.UseWaypoint.Value and (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude > Options.AutofarmRadius.Value then continue end
+
+                local NewDistance = (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+                if Options.PrioritizeMobs.Value[Mob.Name] then
+                    if NewDistance < PrioritizedDistance then
+                        PrioritizedDistance = NewDistance
+                        Target = Mob
+                    end
+                elseif not (Target and Options.PrioritizeMobs.Value[Target.Name]) then
+                    if NewDistance < Distance then
+                        Distance = NewDistance
+                        Target = Mob
+                    end
+                end
+            end
+
+            WaypointIndex = 1
+            Waypoints = {}
+
+            if Target then
+                local TargetPosition = Target.HumanoidRootPart.CFrame.Position
+
+                if Options.AutowalkHorizontalOffset.Value > 0 then
+                    local Difference = HumanoidRootPart.CFrame.Position - Target.HumanoidRootPart.CFrame.Position
+                    Difference -= Vector3.new(0, Difference.Y, 0)
+                    if Difference.Magnitude ~= 0 then
+                        TargetPosition += Difference.Unit * Options.AutowalkHorizontalOffset.Value
+                    end
+                end
+
+                Waypoints = { HumanoidRootPart.CFrame, { Position = TargetPosition } }
+
+                if Toggles.Pathfind.Value then
+                    Path:ComputeAsync(HumanoidRootPart.CFrame.Position, TargetPosition)
+                    if Path.Status == Enum.PathStatus.Success then
+                        Waypoints = Path:GetWaypoints()
+                    end
+                end
+            end
+
+            TargetRefreshTick = tick()
+        end
+
+        if not Target then continue end
+
+        if not TargetCheck(Target) or Options.IgnoreMobs.Value[Target.Name] then
+            TargetRefreshTick = 0
+            continue
+        end
+
+        if Waypoints[WaypointIndex + 1] then
+            Humanoid:MoveTo(Waypoints[WaypointIndex + 1].Position)
+            SetWalkingAnimation(true)
+        else
+            SetWalkingAnimation(false)
+        end
+    end
+    SetWalkingAnimation(false)
 end)
 
 Autowalk:AddToggle('Pathfind', { Text = 'Pathfind' })
+Autowalk:AddSlider('AutowalkHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 100, Rounding = 0, Suffix = 'm' })
 Autowalk:AddLabel('Remaining settings in Autofarm')
 
 local Killaura = Main:AddRightGroupbox('Killaura')
@@ -443,7 +472,7 @@ OldNameCall = hookmetamethod(game, '__namecall', function(Self, ...)
         if Args[1] == 'Actions' then
             if Args[2][1] == 'Sprint' then
                 if Args[2][2] == 'Step' then
-                    if Toggles.NoSprintCost.Value then
+                    if Toggles.NoSprintAndRollCost.Value then
                         return
                     end
                 elseif Args[2][2] == 'Enabled' then
@@ -454,29 +483,34 @@ OldNameCall = hookmetamethod(game, '__namecall', function(Self, ...)
             end
         elseif Args[1] == 'Skills' then
             if Args[2][2] == 'Roll' then
-                if Toggles.NoSprintCost.Value then
+                if Toggles.NoSprintAndRollCost.Value then
                     return
                 end
             end
         elseif Args[1] == 'Combat' then
-            if not Args[4] then
-                if Toggles.Killaura.Value or OnCooldown[Args[3][4]] then
-                    return
-                elseif Options.SwingThreads.Value > 1 and math.random(1, 100) <= Options.ThreadChance.Value then
-                    OnCooldown[Args[3][4]] = true
-                    task.spawn(function()
-                        local ThreadDelay = (Options.SwingDelay.Value - Options.BurstState.Value / 10 * Options.BurstDelayReduction.Value) * 0.67
-                        if Toggles.DelayThreads.Value then
-                            task.wait(ThreadDelay)
-                        end
-                        for _ = 2, Options.SwingThreads.Value do
-                            Event:FireServer(Args[1], Args[2], Args[3], true)
-                        end
-                        task.wait(Options.SwingThreads.Value * 0.3 - (Toggles.DelayThreads.Value and 0 or ThreadDelay))
-                        OnCooldown[Args[3][4]] = nil
-                    end)
-                end
+            if Args[4] then
+                return OldNameCall(Self, ...)
             end
+
+            if Toggles.Killaura.Value or OnCooldown[Args[3][4]] then
+                return
+            end
+
+            if Options.SwingThreads.Value == 1 then
+                return
+            end
+
+            Args[4] = true
+            local Target = Args[3][4]
+            OnCooldown[Target] = true
+            task.spawn(function()
+                Args[4] = true
+                for _ = 2, Options.SwingThreads.Value do
+                    Event:FireServer(unpack(Args))
+                end
+                task.wait(Options.SwingThreads.Value * 0.225)
+                OnCooldown[Target] = nil
+            end)
         end
     elseif Self == Function then
         if Args[1] == 'Teleport' then
@@ -638,7 +672,7 @@ local function Attack(Target)
                 KillauraSkill.OnCooldown = false
             end)
         elseif not KillauraSkill.Active and Entity.Stamina.Value >= NormalAttack.Cost then
-            Event:FireServer('Skills', { 'UseSkill', 'Block' })
+            Event:FireServer('Skills', { 'UseSkill', NormalAttack.Name })
             NormalAttack.Active = true
             task.spawn(function()
                 task.wait(2.5)
@@ -676,7 +710,7 @@ local function Attack(Target)
         end
     end
     for _ = 1, Threads do
-        Event:FireServer('Combat', RPCKey, { 'Attack', Target, KillauraSkill.Active and KillauraSkill.Name or 'Block', AttackKey }, true)
+        Event:FireServer('Combat', RPCKey, { 'Attack', Target, KillauraSkill.Active and KillauraSkill.Name or NormalAttack.Name, AttackKey }, true)
     end
     OnCooldown[Target] = true
     task.spawn(function()
@@ -765,15 +799,17 @@ Options.SkillToUse:SetValues()
 
 local AdditionalCheats = Main:AddRightGroupbox('Additional cheats')
 
-AdditionalCheats:AddToggle('NoSprintCost', { Text = 'No sprint cost' })
+-- require(Services.Actions).SetSprinting
+
+AdditionalCheats:AddToggle('NoSprintAndRollCost', { Text = 'No sprint & roll cost' })
 AdditionalCheats:AddSlider('SprintSpeed', { Text = 'Sprint speed', Default = 27, Min = 27, Max = 100, Rounding = 0, Suffix = 'mps' })
 
 AdditionalCheats:AddToggle('Fly', { Text = 'Fly' }):OnChanged(function(Value)
     LerpToggle(Toggles.Fly)
     while Toggles.Fly.Value do
         local DeltaTime = task.wait()
-        if not (Control.D - Control.A == 0 and Control.S - Control.W == 0) then
-            local TargetPosition = (Camera.CFrame.Rotation * Vector3.new(Control.D - Control.A, 0, Control.S - Control.W)) * 60 * DeltaTime
+        if not (Controls.D - Controls.A == 0 and Controls.S - Controls.W == 0) then
+            local TargetPosition = (Camera.CFrame.Rotation * Vector3.new(Controls.D - Controls.A, 0, Controls.S - Controls.W)) * 60 * DeltaTime
             HumanoidRootPart.CFrame += TargetPosition * math.clamp(DeltaTime * 60 / (TargetPosition).Magnitude, 0, 1)
         end
     end
@@ -940,17 +976,6 @@ task.spawn(function()
     Options.Teleports:SetValues()
 end)
 
-local Services = (function()
-    while true do
-        for _, MainModule in (getloadedmodules or getnilinstances)() do
-            if MainModule.Name == 'MainModule' then
-                return MainModule.Services
-            end
-        end
-        task.wait()
-    end
-end)()
-
 local CombatService = require(Services.Combat)
 RPCKey = debug.getupvalue(CombatService.DealDamage, 2) or { '\204', '\214', '\177', '\251' }
 AttackKey = debug.getconstant(CombatService.DealDamage, 5)
@@ -1103,13 +1128,13 @@ ModCounter.Changed:Connect(function(Value)
         if #ModsIngame > 0 then
             Library:Notify(string.format('The mods that are currently in-game are: \n%s', table.concat(ModsIngame, ', \n')), 10)
         else
-            Library:Notify('There are no mods in-game')
+            Library:Notify('There are no mods in game')
         end
         ModCounter.Value = 0
         ModsIngame = nil
     end
 end)
-ModDetector:AddButton({ Text = 'Mods in-game (don\'t use at spawn)', Func = function()
+ModDetector:AddButton({ Text = 'Mods in game (don\'t use at spawn)', Func = function()
     if not ModsIngame then
         ModsIngame = {}
         Library:Notify('Checking profiles...')
@@ -1580,8 +1605,6 @@ end)
 
 SwingCheats:AddDivider()
 SwingCheats:AddSlider('SwingThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
-SwingCheats:AddToggle('DelayThreads', { Text = 'Delay threads' })
-SwingCheats:AddSlider('ThreadChance', { Text = 'Thread chance', Default = 100, Min = 1, Max = 100, Rounding = 0, Suffix = '%' })
 
 local InTrade = Instance.new('BoolValue')
 local TradeLastSent = 0
@@ -1806,12 +1829,12 @@ Menu:AddLabel('Menu keybind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoU
 
 Library.ToggleKeybind = Options.MenuKeybind
 
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local ThemeManager = isfolder('LinoriaLib') and loadfile('LinoriaLib/addons/ThemeManager.lua') or loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
 ThemeManager:SetFolder('Bluu/Swordburst 2')
 ThemeManager:ApplyToTab(Settings)
 
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+local SaveManager = isfolder('LinoriaLib') and loadfile('LinoriaLib/addons/SaveManager.lua') or loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 SaveManager:SetLibrary(Library)
 SaveManager:SetFolder('Bluu/Swordburst 2')
 SaveManager:IgnoreThemeSettings()
