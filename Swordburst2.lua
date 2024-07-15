@@ -98,7 +98,7 @@ end)()
 
 local repo = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/'
 
-local Library = isfolder('LinoriaLib') and loadfile('LinoriaLib/Library.lua') or loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local Library = isfolder('LinoriaLib') and loadstring(loadfile('LinoriaLib/Library.lua'))() or loadstring(game:HttpGet(repo .. 'Library.lua'))()
 
 local Window = Library:CreateWindow({
     Title = 'Bluu | Swordburst 2',
@@ -1829,12 +1829,12 @@ Menu:AddLabel('Menu keybind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoU
 
 Library.ToggleKeybind = Options.MenuKeybind
 
-local ThemeManager = isfolder('LinoriaLib') and loadfile('LinoriaLib/addons/ThemeManager.lua') or loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local ThemeManager = isfolder('LinoriaLib') and loadstring(loadfile('LinoriaLib/addons/ThemeManager.lua'))() or loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
 ThemeManager:SetFolder('Bluu/Swordburst 2')
 ThemeManager:ApplyToTab(Settings)
 
-local SaveManager = isfolder('LinoriaLib') and loadfile('LinoriaLib/addons/SaveManager.lua') or loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+local SaveManager = isfolder('LinoriaLib') and loadstring(loadfile('LinoriaLib/addons/SaveManager.lua'))() or loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 SaveManager:SetLibrary(Library)
 SaveManager:SetFolder('Bluu/Swordburst 2')
 SaveManager:IgnoreThemeSettings()
