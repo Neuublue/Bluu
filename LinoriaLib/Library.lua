@@ -618,7 +618,7 @@ do
             BorderSizePixel = 0;
             Size = UDim2.new(0, 27, 0, 13);
             ZIndex = 5;
-            Image = 'http://www.roblox.com/asset/?id=18579552248';
+            Image = 'http://www.roblox.com/asset/?id=18580629231';
             Visible = not not Info.Transparency;
             Parent = DisplayFrame;
         });
@@ -681,7 +681,7 @@ do
             BorderSizePixel = 0;
             Size = UDim2.new(1, 0, 1, 0);
             ZIndex = 18;
-            Image = 'http://www.roblox.com/asset/?id=18579913718';
+            Image = 'http://www.roblox.com/asset/?id=18580632112';
             Parent = SatVibMapInner;
         });
 
@@ -689,7 +689,7 @@ do
             AnchorPoint = Vector2.new(0.5, 0.5);
             Size = UDim2.new(0, 6, 0, 6);
             BackgroundTransparency = 1;
-            Image = 'http://www.roblox.com/asset/?id=18579605365';
+            Image = 'http://www.roblox.com/asset/?id=18580629971';
             ImageColor3 = Color3.new(0, 0, 0);
             ZIndex = 19;
             Parent = SatVibMap;
@@ -699,7 +699,7 @@ do
             Size = UDim2.new(0, CursorOuter.Size.X.Offset - 2, 0, CursorOuter.Size.Y.Offset - 2);
             Position = UDim2.new(0, 1, 0, 1);
             BackgroundTransparency = 1;
-            Image = 'http://www.roblox.com/asset/?id=18579605365';
+            Image = 'http://www.roblox.com/asset/?id=18580629971';
             ZIndex = 20;
             Parent = CursorOuter;
         })
@@ -810,7 +810,7 @@ do
             local CheckeredGradient = Library:Create('ImageLabel', {
                 BackgroundTransparency = 1;
                 Size = UDim2.new(1, 0, 1, 0);
-                Image = 'http://www.roblox.com/asset/?id=18579603727';
+                Image = 'http://www.roblox.com/asset/?id=18580630715';
                 ZIndex = 20;
                 Parent = TransparencyBoxInner;
             });
@@ -2478,7 +2478,7 @@ do
             BackgroundTransparency = 1;
             Position = UDim2.new(1, -16, 0.5, 0);
             Size = UDim2.new(0, 12, 0, 12);
-            Image = 'http://www.roblox.com/asset/?id=18579489748';
+            Image = 'http://www.roblox.com/asset/?id=18580628464';
             ZIndex = 8;
             Parent = DropdownInner;
         });
