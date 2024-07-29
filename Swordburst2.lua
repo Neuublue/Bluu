@@ -1155,10 +1155,6 @@ if RequiredServices then
     for _, Animation in Database.Animations:GetChildren() do
         if table.find({ 'Misc', 'Daggers', 'SwordShield', 'Dagger' }, Animation.Name) then continue end
         table.insert(Animations, Animation.Name)
-        if not Profile.AnimSettings:FindFirstChild(Animation.Name) then continue end
-        local StringValue = Instance.new('StringValue')
-        StringValue.Name = Animation.Name
-        StringValue.Parent = Profile.AnimSettings
     end
 
     Misc1:AddDropdown('Animations', { Text = 'Animations', Values = Animations, AllowNull = true })
@@ -1168,7 +1164,6 @@ if RequiredServices then
         return Options.Animations.Value or CalculateCombatStyleOld(...)
     end
 end
-
 
 local UnownedAnimations = (function()
     local Temp = {}
@@ -1180,7 +1175,6 @@ local UnownedAnimations = (function()
     end
     return Temp
 end)()
-
 
 Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs' }):OnChanged(function(Value)
     for _, AnimPack in UnownedAnimations do
@@ -1708,11 +1702,15 @@ end)
 
 local Flagging = KickBox:AddTab('Flagging')
 
+local FlaggedPlayers = {}
+
 Flagging:AddToggle('Autoflag', { Text = 'Autoflag' }):OnChanged(function(Value)
     if not Value then return end
     for _, Player in Players:GetPlayers() do
         if Player == LocalPlayer then continue end
         if Options.AutoflagIgnorePlayers.Value[Player.Name] then continue end
+        if FlaggedPlayers[Player.Name] then return end
+        FlaggedPlayers[Player.Name] = true
         Event:FireServer('Moderator', 'Report', Player)
     end
 end)
@@ -1722,6 +1720,8 @@ Flagging:AddDropdown('AutoflagIgnorePlayers', { Text = 'Ignore players', Values 
 Players.PlayerAdded:Connect(function(Player)
     if not Toggles.Autoflag.Value then return end
     if Options.AutoflagIgnorePlayers.Value[Player.Name] then return end
+    if FlaggedPlayers[Player.Name] then return end
+    FlaggedPlayers[Player.Name] = true
     Event:FireServer('Moderator', 'Report', Player)
 end)
 
