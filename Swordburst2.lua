@@ -772,7 +772,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
     while Toggles.Killaura.Value do
         task.wait(0.1)
 
-        if not Humanoid.Health > 0 then continue end
+        if not (Humanoid.Health > 0) then continue end
 
         for _, Mob in Mobs:GetChildren() do
             if OnCooldown[Mob] then continue end
