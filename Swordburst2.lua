@@ -770,28 +770,37 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
 :AddKeyPicker('KillauraBind', { Default = 'H', NoUI = true })
 :OnChanged(function(Value)
     while Toggles.Killaura.Value do
-        if Humanoid.Health > 0 then
-            for _, Mob in Mobs:GetChildren() do
-                if not OnCooldown[Mob] and TargetCheck(Mob) and (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value then
-                    Attack(Mob)
-                end
-            end
-            if Toggles.AttackPlayers.Value then
-                for Target, Player in Players:GetPlayers() do
-                    Target = Player.Character
-                    if Target and Target ~= Character and not OnCooldown[Target] and TargetCheck(Target) and (Target.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value then
-                        Attack(Target)
-                    end
-                end
-            end
+        task.wait(0.1)
+
+        if not Humanoid.Health > 0 then continue end
+
+        for _, Mob in Mobs:GetChildren() do
+            if OnCooldown[Mob] then continue end
+            if not TargetCheck(Mob) then continue end
+            if not (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value then continue end
+            Attack(Mob)
         end
-        task.wait(0.15)
+
+        if not Toggles.AttackPlayers.Value then return end
+
+        for _, Player in Players:GetPlayers() do
+            if Player == LocalPlayer then continue end
+            local TargetCharacter = Player.Character
+            if not TargetCharacter then continue end
+            if Toggles.IgnorePlayers.Value[Player.Name] then continue end
+            if OnCooldown[TargetCharacter] then continue end
+            if not TargetCheck(TargetCharacter) then continue end
+            if not (TargetCharacter.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value then continue end
+            Attack(TargetCharacter)
+        end
     end
 end)
 
 Killaura:AddSlider('KillauraDelay', { Text = 'Delay (breaks damage under 0.3)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
-Killaura:AddSlider('KillauraThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
 Killaura:AddToggle('AutomaticThreads', { Text = 'Automatic threads', Default = true })
+local Depbox = Killaura:AddDependencyBox();
+Depbox:AddSlider('KillauraThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
+Depbox:SetupDependencies({ { Toggles.KillauraThreads, false } });
 Killaura:AddSlider('KillauraRange', { Text = 'Range', Default = 100, Min = 0, Max = 200, Rounding = 0, Suffix = 'm' })
 Killaura:AddToggle('LongerNormalAttacks', { Text = 'Longer normal attacks', Default = true })
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
