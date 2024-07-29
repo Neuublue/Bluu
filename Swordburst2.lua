@@ -777,11 +777,11 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
         for _, Mob in Mobs:GetChildren() do
             if OnCooldown[Mob] then continue end
             if not TargetCheck(Mob) then continue end
-            if not (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value then continue end
+            if not ((Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value) then continue end
             Attack(Mob)
         end
 
-        if not Toggles.AttackPlayers.Value then return end
+        if not Toggles.AttackPlayers.Value then continue end
 
         for _, Player in Players:GetPlayers() do
             if Player == LocalPlayer then continue end
@@ -790,7 +790,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
             if Toggles.IgnorePlayers.Value[Player.Name] then continue end
             if OnCooldown[TargetCharacter] then continue end
             if not TargetCheck(TargetCharacter) then continue end
-            if not (TargetCharacter.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value then continue end
+            if not ((TargetCharacter.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value) then continue end
             Attack(TargetCharacter)
         end
     end
@@ -1188,20 +1188,20 @@ Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs'
     end
 end)
 
-local UnownedCosmeticTags = (function()
-    local Temp = {}
-    for _, Tag in Profile.CosmeticTags:GetChildren() do
-        if Tag.Value then continue end
-        table.insert(Temp, Tag)
-    end
-    return Temp
-end)()
+-- local UnownedCosmeticTags = (function()
+--     local Temp = {}
+--     for _, Tag in Profile.CosmeticTags:GetChildren() do
+--         if Tag.Value then continue end
+--         table.insert(Temp, Tag)
+--     end
+--     return Temp
+-- end)()
 
-Misc1:AddToggle('UnlockAllCosmeticTags', { Text = 'Unlock all cosmetic tags' }):OnChanged(function(Value)
-    for _, Tag in UnownedCosmeticTags do
-        Tag.Value = Value
-    end
-end)
+-- Misc1:AddToggle('UnlockAllCosmeticTags', { Text = 'Unlock all cosmetic tags' }):OnChanged(function(Value)
+--     for _, Tag in UnownedCosmeticTags do
+--         Tag.Value = Value
+--     end
+-- end)
 
 PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(Child)
     Child.MouseButton1Click:Connect(function()
