@@ -183,7 +183,7 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
         end
 
         StartTime = tick()
-        while tick() - StartTime < 0.65 do
+        while tick() - StartTime < 0.75 do
             HumanoidRootPart.CFrame = LastDeathCFrame
             task.wait()
         end
@@ -345,7 +345,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
             end
 
             StartTime = tick()
-            while tick() - StartTime < 0.65 do
+            while tick() - StartTime < 0.75 do
                 TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetHumanoidRootPart.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
 
                 if Options.AutofarmHorizontalOffset.Value > 0 then
@@ -1412,7 +1412,7 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
             end
 
             StartTime = tick()
-            while tick() - StartTime < 0.65 do
+            while tick() - StartTime < 0.75 do
                 HumanoidRootPart.CFrame = TargetHumanoidRootPart.CFrame +
                     Vector3.new(Options.XOffset.Value, Options.YOffset.Value, Options.ZOffset.Value)
                 task.wait()
