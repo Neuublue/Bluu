@@ -869,9 +869,6 @@ if RequiredServices then
 else
     UserInputService.InputEnded:Connect(function(Key, GameProcessed)
         if GameProcessed or Key.KeyCode.Name ~= Profile.Hotkeys.Sprint.Value then return end
-        if Humanoid.WalkSpeed == 27 then
-            Humanoid:GetAttributeChangedSignal('WalkSpeed'):Wait()
-        end
         Humanoid.WalkSpeed = Options.WalkSpeed.Value
     end)
 
