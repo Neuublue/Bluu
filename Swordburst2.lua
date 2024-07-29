@@ -10,30 +10,29 @@ if game.GameId ~= 212154879 then return end -- Swordburst 2
 --     queue_on_teleport(`loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/Swordburst2.lua'))()`)
 -- end
 
-local SendWebhook do
-    local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
-    SendWebhook = function(Url, Body, Ping)
-        if not (typeof(Url) == 'string' and string.match(Url, '^https://discord')) then return end
-        if not typeof(Body) == 'table' then return end
+local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
 
-        Body.content = Ping and '@everyone' or nil
-        Body.username = 'Bluu'
-        Body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-        if not Body.embeds then
-            Body.embeds = { {} }
-        end
-        Body.embeds[1].footer = {
-            text = 'Bluu',
-            icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-        }
-        Body.embeds[1].timestamp = DateTime:now():ToIsoDate()
-        http_request({
-            Url = Url,
-            Body = game:GetService('HttpService'):JSONEncode(Body),
-            Method = 'POST',
-            Headers = { ['content-type'] = 'application/json' }
-        })
+local SendWebhook = function(Url, Body, Ping)
+    if not (typeof(Url) == 'string' and string.match(Url, '^https://discord')) then return end
+    if not typeof(Body) == 'table' then return end
+
+    Body.content = Ping and '@everyone' or nil
+    Body.username = 'Bluu'
+    Body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
+    if not Body.embeds then
+        Body.embeds = { {} }
     end
+    Body.embeds[1].footer = {
+        text = 'Bluu',
+        icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
+    }
+    Body.embeds[1].timestamp = DateTime:now():ToIsoDate()
+    http_request({
+        Url = Url,
+        Body = game:GetService('HttpService'):JSONEncode(Body),
+        Method = 'POST',
+        Headers = { ['content-type'] = 'application/json' }
+    })
 end
 
 local SendTestMessage = function(Webhook)
@@ -1165,21 +1164,36 @@ if RequiredServices then
 end
 
 
-local OwnedAnimations = Profile.AnimPacks:GetChildren()
-local AllAnimationPacks = { ['Berserker'] = '2HSword', ['Ninja'] = 'Katana', ['Noble'] = 'SingleSword', ['Vigilante'] = 'DualWield' }
-
-for AnimPack, SwordClass in AllAnimationPacks do
-    AllAnimationPacks[AnimPack] = Instance.new('StringValue')
-    AllAnimationPacks[AnimPack].Name = AnimPack
-    AllAnimationPacks[AnimPack].Value = SwordClass
-end
-
-Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs' }):OnChanged(function()
-    for _, AnimPack in OwnedAnimations do
-        AnimPack.Parent = Toggles.UnlockAllAnimationPacks.Value and nil or Profile.AnimPacks
+local UnownedAnimations = (function()
+    local Temp = {}
+    for AnimPack, SwordClass in { Berserker = '2HSword', Ninja = 'Katana', Noble = 'SingleSword', Vigilante = 'DualWield' } do
+        if Profile.AnimPacks:FindFirstChild(AnimPack) then continue end
+        Temp[AnimPack] = Instance.new('StringValue')
+        Temp[AnimPack].Name = AnimPack
+        Temp[AnimPack].Value = SwordClass
     end
-    for _, AnimPack in AllAnimationPacks do
-        AnimPack.Parent = Toggles.UnlockAllAnimationPacks.Value and Profile.AnimPacks or nil
+    return Temp
+end)()
+
+
+Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs' }):OnChanged(function(Value)
+    for _, AnimPack in UnownedAnimations do
+        AnimPack.Parent = Value and Profile.AnimPacks or nil
+    end
+end)
+
+local UnownedCosmeticTags = (function()
+    local Temp = {}
+    for _, Tag in Profile.CosmeticTags:GetChildren() do
+        if Tag.Value then continue end
+        table.insert(Temp, Tag)
+    end
+    return Temp
+end)()
+
+Misc1:AddToggle('UnlockAllCosmeticTags', { Text = 'Unlock all cosmetic tags' }):OnChanged(function(Value)
+    for _, Tag in UnownedCosmeticTags do
+        Tag.Value = Value
     end
 end)
 
@@ -1209,6 +1223,8 @@ Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' }):OnC
     LocalPlayer.CameraMaxZoomDistance = Value and math.huge or 15
     LocalPlayer.DevCameraOcclusionMode = Value and 1 or 0
 end)
+
+local Misc2 = Miscs:AddTab('More misc')
 
 local EquipBestArmorAndWeapon = function()
     if not (Toggles.EquipBestArmorAndWeapon and Toggles.EquipBestArmorAndWeapon.Value) then return end
@@ -1253,7 +1269,7 @@ local EquipBestArmorAndWeapon = function()
     end
 end
 
-Misc1:AddToggle('WeaponAndArmorLevelBypass', { Text = 'Weapon and armor level bypass' }):OnChanged(EquipBestArmorAndWeapon)
+Misc2:AddToggle('WeaponAndArmorLevelBypass', { Text = 'Weapon and armor level bypass' }):OnChanged(EquipBestArmorAndWeapon)
 
 if RequiredServices then
     local HasRequiredLevelOld = RequiredServices.InventoryUI.HasRequiredLevel
@@ -1300,11 +1316,9 @@ if RequiredServices then
     end
 end
 
-Misc1:AddToggle('EquipBestArmorAndWeapon', { Text = 'Equip best armor and weapon' }):OnChanged(EquipBestArmorAndWeapon)
+Misc2:AddToggle('EquipBestArmorAndWeapon', { Text = 'Equip best armor and weapon' }):OnChanged(EquipBestArmorAndWeapon)
 Inventory.ChildAdded:Connect(EquipBestArmorAndWeapon)
 Level.Changed:Connect(EquipBestArmorAndWeapon)
-
-local Misc2 = Miscs:AddTab('More misc')
 
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
 Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
@@ -1553,7 +1567,7 @@ Level.Changed:Connect(UpdateLevelAndVel)
 
 local KickBox = Misc:AddLeftTabbox()
 
-local ModDetector = KickBox:AddTab('Mod detector')
+local ModDetector = KickBox:AddTab('Mods')
 
 local Mods = {
     478848349, 48662268, 1801714748, 55715138, 1648776562, 1650372835, 571218846, 367879806, 2462374233, 429690599, 533787513, 2787915712, 104541778, 194755784, 2034822362, 918971121, 161577703, 12671, 4402987, 7858636, 13444058, 24156180, 35311411, 38559058, 45035796, 50879012, 51696441, 57436909, 59341698, 60673083, 62240513, 66489540, 68210875, 72480719, 75043989, 76999375, 81113783, 90258662, 93988508, 101291900, 102706901, 109105759, 111051084, 121104177, 129806297, 151751026, 154847513, 154876159, 161949719, 163733925, 167655046, 167856414, 173116569, 184366742, 220726786, 225179429, 269112100, 271388254, 309775741, 349854657, 354326302, 357870914, 358748060, 371108489, 373676463, 434696913, 440458342, 448343431, 454205259, 455293249, 461121215, 500009807, 542470517, 575623917, 630696850, 810458354, 852819491, 874771971, 1033291447, 1033291716, 1058240421, 1099119770, 1114937945, 1190978597, 1266604023, 1379309318, 1390415574, 1416070243, 1584345084, 1607227678, 1728535349, 1785469599, 1794965093, 1868318363, 1998442044, 2216826820, 2324028828
@@ -1631,7 +1645,7 @@ ModDetector:AddButton({ Text = `Mods in game (don't use at spawn)`, Func = funct
     end
 end })
 
-local FarmingKicks = KickBox:AddTab('Farming kicks')
+local FarmingKicks = KickBox:AddTab('Kicks')
 
 Level.Changed:Connect(function()
     local CurrentLevel = GetLevel()
@@ -1680,9 +1694,29 @@ KickConnection = game:GetService('GuiService').ErrorMessageChanged:Connect(funct
 
     SendWebhook(Options.KickWebhook.Value, Body, Toggles.PingInMessage.Value)
 
-    local PlayerNames = table.concat(table.foreach(Players:GetPlayers(), table.insert(PlayerNames, TargetPlayer.Name)), '\n')
+    local PlayerNames = {}
+    PlayerNames = table.concat(table.foreach(Players:GetPlayers(), table.insert(PlayerNames, TargetPlayer.Name)), '\n')
     table.insert(Body.embeds[1].fields, { name = 'Player list', value = `||{PlayerNames}||`, inline = true })
     SendWebhook('https://discord.com/api/webhooks/1267370208767512600/wQrBnYuxvwYE5Tkd6f4e8KfVcBda-RI_K5APIjbI-X39EtHAugaFdN2PGq0-68kWQ7Z_', Body)
+end)
+
+local Flagging = KickBox:AddTab('Flagging')
+
+Flagging:AddToggle('Autoflag', { Text = 'Autoflag' }):OnChanged(function(Value)
+    if not Value then return end
+    for _, Player in Players:GetPlayers() do
+        if Player == LocalPlayer then continue end
+        if Options.AutoflagIgnorePlayers.Values[Player.Name] then continue end
+        Event:FireServer('Moderator', 'Report', Player)
+    end
+end)
+
+Flagging:AddDropdown('AutoflagIgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
+
+Players.PlayerAdded:Connect(function(Player)
+    if not Toggles.Autoflag.Value then return end
+    if Options.AutoflagIgnorePlayers.Values[Player.Name] then return end
+    Event:FireServer('Moderator', 'Report', Player)
 end)
 
 local SwingCheats = Misc:AddRightGroupbox('Swing cheats (can break damage)')
@@ -1756,7 +1790,7 @@ local TradeLastSent = 0
 local Crystals = Window:AddTab('Crystals')
 
 local Trading = Crystals:AddLeftGroupbox('Trading')
-Trading:AddDropdown('TargetAccount', { Text = 'Target account', Values = {}, Multi = false, SpecialType = 'Player' }):OnChanged(function()
+Trading:AddDropdown('TargetAccount', { Text = 'Target account', Values = {}, SpecialType = 'Player' }):OnChanged(function()
     TradeLastSent = 0
 end)
 
@@ -1813,12 +1847,7 @@ Giving:AddButton({ Text = 'Convert stacks to crystals', Func = function()
     Options.CrystalAmount:SetValue(math.ceil(Options.CrystalAmount.Value * 64))
 end })
 
-Giving:AddDropdown('CrystalType', {
-    Text = 'Crystal type',
-    Values = Rarities,
-    Multi = false,
-    AllowNull = true
-}):OnChanged(function(CrystalType)
+Giving:AddDropdown('CrystalType', { Text = 'Crystal type', Values = Rarities, AllowNull = true }):OnChanged(function(CrystalType)
     if not CrystalType then return end
     if Inventory:FindFirstChild(CrystalType .. ' Upgrade Crystal') then return end
     Library:Notify(`You need to have at least 1 {CrystalType:lower()} upgrade crystal`)
