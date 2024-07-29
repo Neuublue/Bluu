@@ -800,7 +800,7 @@ Killaura:AddSlider('KillauraDelay', { Text = 'Delay (breaks damage under 0.3)', 
 Killaura:AddToggle('AutomaticThreads', { Text = 'Automatic threads', Default = true })
 local Depbox = Killaura:AddDependencyBox();
 Depbox:AddSlider('KillauraThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
-Depbox:SetupDependencies({ { Toggles.KillauraThreads, false } });
+Depbox:SetupDependencies({ { Toggles.AutomaticThreads, false } });
 Killaura:AddSlider('KillauraRange', { Text = 'Range', Default = 100, Min = 0, Max = 200, Rounding = 0, Suffix = 'm' })
 Killaura:AddToggle('LongerNormalAttacks', { Text = 'Longer normal attacks', Default = true })
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
