@@ -1703,7 +1703,7 @@ Flagging:AddToggle('Autoflag', { Text = 'Autoflag' }):OnChanged(function(Value)
     if not Value then return end
     for _, Player in Players:GetPlayers() do
         if Player == LocalPlayer then continue end
-        if Options.AutoflagIgnorePlayers.Values[Player.Name] then continue end
+        if Options.AutoflagIgnorePlayers.Value[Player.Name] then continue end
         Event:FireServer('Moderator', 'Report', Player)
     end
 end)
@@ -1712,7 +1712,7 @@ Flagging:AddDropdown('AutoflagIgnorePlayers', { Text = 'Ignore players', Values 
 
 Players.PlayerAdded:Connect(function(Player)
     if not Toggles.Autoflag.Value then return end
-    if Options.AutoflagIgnorePlayers.Values[Player.Name] then return end
+    if Options.AutoflagIgnorePlayers.Value[Player.Name] then return end
     Event:FireServer('Moderator', 'Report', Player)
 end)
 
