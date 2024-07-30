@@ -1182,20 +1182,20 @@ Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs'
     end
 end)
 
--- local UnownedCosmeticTags = (function()
---     local Temp = {}
---     for _, Tag in Profile.CosmeticTags:GetChildren() do
---         if Tag.Value then continue end
---         table.insert(Temp, Tag)
---     end
---     return Temp
--- end)()
+local UnownedCosmeticTags = (function()
+    local Temp = {}
+    for _, Tag in Profile.CosmeticTags:GetChildren() do
+        if Tag.Value then continue end
+        table.insert(Temp, Tag)
+    end
+    return Temp
+end)()
 
--- Misc1:AddToggle('UnlockAllCosmeticTags', { Text = 'Unlock all cosmetic tags' }):OnChanged(function(Value)
---     for _, Tag in UnownedCosmeticTags do
---         Tag.Value = Value
---     end
--- end)
+Misc1:AddToggle('UnlockAllCosmeticTags', { Text = 'Unlock all cosmetic tags' }):OnChanged(function(Value)
+    for _, Tag in UnownedCosmeticTags do
+        Tag.Value = Value
+    end
+end)
 
 PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(Child)
     Child.MouseButton1Click:Connect(function()
@@ -1418,7 +1418,7 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
 
         local Difference = TargetCFrame.Position - HumanoidRootPart.CFrame.Position
         local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
-        if HorizontalDifference.Magnitude > 100 then
+        if HorizontalDifference.Magnitude > 60 then
             local StartTime = tick()
             while tick() - StartTime < 0.15 do
                 HumanoidRootPart.CFrame = TargetCFrame + Vector3.new(0, 1e6, 0)
@@ -1437,9 +1437,9 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
     end
 end)
 
-PlayersBox:AddSlider('XOffset', { Text = 'X offset', Default = 0, Min = -30, Max = 30, Rounding = 0 })
-PlayersBox:AddSlider('YOffset', { Text = 'Y offset', Default = 5, Min = -30, Max = 30, Rounding = 0 })
-PlayersBox:AddSlider('ZOffset', { Text = 'Z offset', Default = 0, Min = -30, Max = 30, Rounding = 0 })
+PlayersBox:AddSlider('XOffset', { Text = 'X offset', Default = 0, Min = -20, Max = 20, Rounding = 0 })
+PlayersBox:AddSlider('YOffset', { Text = 'Y offset', Default = 5, Min = -20, Max = 20, Rounding = 0 })
+PlayersBox:AddSlider('ZOffset', { Text = 'Z offset', Default = 0, Min = -20, Max = 20, Rounding = 0 })
 
 local Drops = Misc:AddLeftGroupbox('Drops')
 
