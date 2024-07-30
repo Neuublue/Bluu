@@ -165,15 +165,7 @@ local HumanoidConnection = function()
             Humanoid.Health = 0
         end
     end)
-end
 
-HumanoidConnection()
-
-LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
-    Character = NewCharacter
-    Humanoid = Character:WaitForChild('Humanoid')
-    HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
-    Entity = Character:WaitForChild('Entity')
     if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
         local StartTime = tick()
         while tick() - StartTime < 0.15 do
@@ -187,6 +179,15 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
             task.wait()
         end
     end
+end
+
+HumanoidConnection()
+
+LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+    Character = NewCharacter
+    Humanoid = Character:WaitForChild('Humanoid')
+    HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
+    Entity = Character:WaitForChild('Entity')
     HumanoidConnection()
 end)
 
