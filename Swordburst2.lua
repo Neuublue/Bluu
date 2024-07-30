@@ -177,12 +177,12 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
         local StartTime = tick()
         while tick() - StartTime < 0.15 do
-            HumanoidRootPart.CFrame = LastDeathCFrame + Vector3.new(0, 1e6, 0)
+            HumanoidRootPart.CFrame = LastDeathCFrame + Vector3.new(0, 1e6 - LastDeathCFrame.Position.Y, 0)
             task.wait()
         end
 
         StartTime = tick()
-        while tick() - StartTime < 0.75 do
+        while tick() - StartTime < 0.8 do
             HumanoidRootPart.CFrame = LastDeathCFrame
             task.wait()
         end
@@ -273,11 +273,11 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
         if not (Controls.D - Controls.A == 0 and Controls.S - Controls.W == 0) then
             local FlySpeed = 80 -- math.max(Humanoid.WalkSpeed, 60)
             local TargetPosition = Camera.CFrame.Rotation
-            * Vector3.new(Controls.D - Controls.A, 0, Controls.S - Controls.W)
-            * FlySpeed
-            * DeltaTime
+                * Vector3.new(Controls.D - Controls.A, 0, Controls.S - Controls.W)
+                * FlySpeed
+                * DeltaTime
             HumanoidRootPart.CFrame += TargetPosition
-            * math.clamp(DeltaTime * FlySpeed / TargetPosition.Magnitude, 0, 1)
+                * math.clamp(DeltaTime * FlySpeed / TargetPosition.Magnitude, 0, 1)
             continue
         end
 
@@ -339,12 +339,12 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
 
             local StartTime = tick()
             while tick() - StartTime < 0.15 do
-                HumanoidRootPart.CFrame = TargetCFrame + Vector3.new(0, 1e6, 0)
+                HumanoidRootPart.CFrame = TargetCFrame + Vector3.new(0, 1e6 - TargetCFrame.Position.Y, 0)
                 task.wait()
             end
 
             StartTime = tick()
-            while tick() - StartTime < 0.75 do
+            while tick() - StartTime < 0.8 do
                 TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetHumanoidRootPart.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
 
                 if Options.AutofarmHorizontalOffset.Value > 0 then
@@ -365,11 +365,20 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
             end
         end
 
+        Difference = TargetPosition - HumanoidRootPart.CFrame.Position
+        Distance = Difference.Magnitude
+
         if Distance == 0 then continue end
 
-        local Direction = Difference.Unit
+        HumanoidRootPart.CFrame += Vector3.new(0, TargetPosition.Y - HumanoidRootPart.CFrame.Position.Y, 0)
+
+        HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
+        local HorizontalDistance = HorizontalDifference.Magnitude
+        if HorizontalDistance == 0 then continue end
+
+        local Direction = HorizontalDifference.Unit
         local Speed = Options.AutofarmSpeed.Value == 0 and math.huge or Options.AutofarmSpeed.Value
-        local Alpha = math.clamp(DeltaTime * Speed / Distance, 0, 1)
+        local Alpha = math.clamp(DeltaTime * Speed / HorizontalDistance, 0, 1)
 
         HumanoidRootPart.CFrame += Direction * Distance * Alpha
     end
@@ -1417,23 +1426,25 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
             Vector3.new(Options.XOffset.Value, Options.YOffset.Value, Options.ZOffset.Value)
 
         local Difference = TargetCFrame.Position - HumanoidRootPart.CFrame.Position
+
         local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
-        if HorizontalDifference.Magnitude > 60 then
+        if HorizontalDifference.Magnitude > 70 then
             local StartTime = tick()
             while tick() - StartTime < 0.15 do
-                HumanoidRootPart.CFrame = TargetCFrame + Vector3.new(0, 1e6, 0)
+                HumanoidRootPart.CFrame = TargetCFrame + Vector3.new(0, 1e6 - TargetCFrame.Position.Y, 0)
                 task.wait()
             end
 
             StartTime = tick()
-            while tick() - StartTime < 0.75 do
+            while tick() - StartTime < 0.8 do
                 HumanoidRootPart.CFrame = TargetHumanoidRootPart.CFrame +
                     Vector3.new(Options.XOffset.Value, Options.YOffset.Value, Options.ZOffset.Value)
                 task.wait()
             end
-        else
-            HumanoidRootPart.CFrame = TargetCFrame
+            continue
         end
+
+        HumanoidRootPart.CFrame = TargetCFrame
     end
 end)
 
