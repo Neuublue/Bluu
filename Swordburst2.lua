@@ -53,6 +53,7 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild('Humanoid')
 local HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
 local Entity = Character:WaitForChild('Entity')
+local Stamina = Entity:WaitForChild('Stamina')
 
 local Camera = workspace.CurrentCamera or workspace:GetPropertyChangedSignal('CurrentCamera'):Wait() or workspace.CurrentCamera
 
@@ -188,6 +189,7 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     Humanoid = Character:WaitForChild('Humanoid')
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
     Entity = Character:WaitForChild('Entity')
+    Stamina = Entity:WaitForChild('Stamina')
     HumanoidConnection()
 end)
 
@@ -705,7 +707,7 @@ local OnCooldown = {}
 
 local Attack = function(Target)
     if not NormalAttack.Active then
-        if KillauraSkill.Name ~= 'None' and not KillauraSkill.OnCooldown and KillauraSkill.Cost <= Entity.Stamina.Value
+        if KillauraSkill.Name ~= 'None' and not KillauraSkill.OnCooldown and KillauraSkill.Cost <= Stamina.Value
         and TargetCheck(Target) and Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
             KillauraSkill.OnCooldown = true
             KillauraSkill.Active = true
@@ -742,7 +744,7 @@ local Attack = function(Target)
                 end
                 KillauraSkill.OnCooldown = false
             end)
-        elseif Toggles.LongerNormalAttacks.Value and not KillauraSkill.Active and Entity.Stamina.Value >= NormalAttack.Cost then
+        elseif Toggles.LongerNormalAttacks.Value and not KillauraSkill.Active and Stamina.Value >= NormalAttack.Cost then
             Event:FireServer('Skills', { 'UseSkill', NormalAttack.Name })
             NormalAttack.Active = true
             task.spawn(function()
