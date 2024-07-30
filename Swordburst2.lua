@@ -174,7 +174,7 @@ local HumanoidConnection = function()
         end
 
         StartTime = tick()
-        while tick() - StartTime < 0.8 do
+        while tick() - StartTime < 0.85 do
             HumanoidRootPart.CFrame = LastDeathCFrame
             task.wait()
         end
