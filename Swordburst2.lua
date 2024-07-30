@@ -920,19 +920,108 @@ Locations.FriendTeleport.FriendList.ChildAdded:Connect(function(Friend)
     Friend.Follow.MouseButton1Click:Connect(function()
         if not Toggles.FastFloorTeleports.Value then return end
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+        Function:InvokeServer('Teleport', { 'FriendTeleport', Players:GetUserIdFromNameAsync(Friend.PlayerName.Text) })
     end)
 end)
+
+local Floors = {
+    {
+        Name = 'Arcadia',
+        Designation = 'F1',
+        Image = 'rbxassetid://615523763',
+        PlaceId = 540240728
+    }, {
+        Name = 'Virhst Woodlands',
+        Designation = 'F1',
+        Image = 'rbxassetid://615506568',
+        PlaceId = 542351431
+    }, {
+        Name = 'Battle Arena',
+        Designation = 'F1',
+        Image = 'rbxassetid://825680829',
+        PlaceId = 737272595,
+        Unlocked = true
+    }, {
+        Name = 'Redveil Grove',
+        Designation = 'F2',
+        Image = 'rbxassetid://730567278',
+        PlaceId = 548231754
+    }, {
+        Name = 'Avalanche Expanse',
+        Designation = 'F3',
+        Image = 'rbxassetid://2154912275',
+        PlaceId = 555980327
+    }, {
+        Name = 'Hidden Wilds',
+        Designation = 'F4',
+        Image = 'rbxassetid://1079562005',
+        PlaceId = 572487908
+    }, {
+        Name = 'Desolate Dunes',
+        Designation = 'F5',
+        Image = 'rbxassetid://1180881560',
+        PlaceId = 580239979
+    }, {
+        Name = 'Helmfirth',
+        Designation = 'F6',
+        Image = 'rbxassetid://1205788593',
+        PlaceId = 566212942
+    }, {
+        Name = 'Entoloma Gloomlands',
+        Designation = 'F7',
+        Image = 'rbxassetid://1230453453',
+        PlaceId = 582198062
+    }, {
+        Name = 'Blooming Plateau',
+        Designation = 'F8',
+        Image = 'rbxassetid://1377821156',
+        PlaceId = 548878321
+    }, {
+        Name = 'Va\' Rok',
+        Designation = 'F9',
+        Image = 'rbxassetid://2154937492',
+        PlaceId = 573267292
+    }, {
+        Name = 'Transylvania',
+        Designation = 'F10',
+        Image = 'rbxassetid://2676660892',
+        PlaceId = 2659143505
+    }, {
+        Name = 'Hypersiddia',
+        Designation = 'F11',
+        Image = 'rbxassetid://5287398273',
+        PlaceId = 5287433115
+    }, {
+        Name = 'Sector - 235',
+        Designation = 'F12',
+        Image = 'rbxassetid://14180629039',
+        PlaceId = 6144637080
+    }, {
+        Name = 'Eternal Garden',
+        Designation = 'F12',
+        Image = 'rbxassetid://16963160635',
+        PlaceId = 16810524216
+    }
+}
 
 Locations.MapList.ChildAdded:Connect(function(Location)
     Location.FloorImage.TeleportButton.MouseButton1Click:Connect(function()
         if not Toggles.FastFloorTeleports.Value then return end
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+        for _, Floor in Floors do
+            if Floor.Image ~= Location.FloorImage.Image then continue end
+            return Function:InvokeServer('Teleport', { 'Teleport', Floor.PlaceId })
+        end
     end)
 end)
 
 Locations.FriendTeleport.ByName.Teleport.MouseButton1Click:Connect(function()
     if not Toggles.FastFloorTeleports.Value then return end
     Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    Function:InvokeServer('Teleport', {
+        'FriendTeleport',
+        Players:GetUserIdFromNameAsync(Locations.FriendTeleport.ByName.PlayerSearch.SearchBox.Text)
+    })
 end)
 
 local ImportantTeleports = {
