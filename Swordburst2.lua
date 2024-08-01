@@ -310,14 +310,16 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
             TargetRefreshTick = tick()
         end
 
-        if not Target then continue end
-
-        if not TargetCheck(Target) or Options.IgnoreMobs.Value[Target.Name] then
+        if not Target then
+            if not Toggles.UseWaypoint.Value then continue end
+        elseif Target ~= Waypoint and not TargetCheck(Target) or Options.IgnoreMobs.Value[Target.Name] then
             TargetRefreshTick = 0
             continue
         end
 
-        local TargetHumanoidRootPart = Target.HumanoidRootPart
+        local TargetHumanoidRootPart = Target and Target.HumanoidRootPart or Toggles.UseWaypoint.Value and Waypoint
+        if not TargetHumanoidRootPart then continue end
+
         local TargetPosition = TargetHumanoidRootPart.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
 
         if Options.AutofarmHorizontalOffset.Value > 0 then
@@ -413,7 +415,8 @@ local MobList = {
     [555980327] = { 'Snowgre', 'Angry Snowman', 'Icewhal', 'Ice Elemental', 'Snowhorse', 'Ice Walker', 'Alpha Icewhal', 'Qerach the Forgotten Golem', `Ra'thae the Ice King`,
     'Evergreen Sentinel', 'Crystalite', 'Gemulite', 'Icy Imp', 'Holiday Android', 'Jolrock the Snow Protecter', 'Withered Wintula' },
     [548231754] = { 'Leaf Beetle', 'Leaf Ogre', 'Leafray', 'Pearl Keeper', 'Bushback Tortoise', 'Giant Ruins Hornet', 'Wasp', 'Pearl Guardian', 'Redthorn Tortoise', 'Borik the BeeKeeper' },
-    [542351431] = { 'Frenzy Boar', 'Hermit Crab', 'Wolf', 'Bear', 'Earthen Crab', 'Earthen Boar', 'Ruin Knight', 'Draconite', 'Ruined Kobold Knight', 'Ruin Kobold Knight', 'Dire Wolf', 'Ruined Kobold Lord', 'Rahjin the Thief King' }
+    [542351431] = { 'Frenzy Boar', 'Hermit Crab', 'Wolf', 'Bear', 'Earthen Crab', 'Earthen Boar', 'Ruin Knight', 'Draconite', 'Ruined Kobold Knight', 'Ruin Kobold Knight', 'Dire Wolf', 'Ruined Kobold Lord', 'Rahjin the Thief King' },
+    [540240728] = { 'Dummy', 'Statue', 'Platemail', 'Iris Dominus Dummy' }
 }
 
 MobList = MobList[game.PlaceId] or {}
@@ -782,7 +785,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
 :AddKeyPicker('KillauraBind', { Default = 'H', NoUI = true })
 :OnChanged(function(Value)
     while Toggles.Killaura.Value do
-        task.wait(0.1)
+        task.wait(0.01)
 
         if not (Humanoid.Health > 0) then continue end
 
