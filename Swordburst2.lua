@@ -416,7 +416,8 @@ local MobList = {
     'Evergreen Sentinel', 'Crystalite', 'Gemulite', 'Icy Imp', 'Holiday Android', 'Jolrock the Snow Protecter', 'Withered Wintula' },
     [548231754] = { 'Leaf Beetle', 'Leaf Ogre', 'Leafray', 'Pearl Keeper', 'Bushback Tortoise', 'Giant Ruins Hornet', 'Wasp', 'Pearl Guardian', 'Redthorn Tortoise', 'Borik the BeeKeeper' },
     [542351431] = { 'Frenzy Boar', 'Hermit Crab', 'Wolf', 'Bear', 'Earthen Crab', 'Earthen Boar', 'Ruin Knight', 'Draconite', 'Ruined Kobold Knight', 'Ruin Kobold Knight', 'Dire Wolf', 'Ruined Kobold Lord', 'Rahjin the Thief King' },
-    [540240728] = { 'Dummy', 'Statue', 'Platemail', 'Iris Dominus Dummy' }
+    [540240728] = { 'Dummy', 'Statue', 'Platemail', 'Iris Dominus Dummy' },
+    [18729767954] = { 'Burger Mimic', 'Cheese-Dip Slime', 'Jelly Slime', 'Rapapouillie', 'Meatball Abomination', 'The Waiter', 'Ramseis, Chef os Souls' }
 }
 
 MobList = MobList[game.PlaceId] or {}
