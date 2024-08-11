@@ -92,7 +92,7 @@ end)
 local RequiredServices = (function()
     if not getreg then return end
     for _, Table in getreg() do
-        if type(Table) == 'table' and Table.Services then
+        if type(Table) == 'table' and rawget(Table, 'Services') then
             return Table.Services
         end
     end
