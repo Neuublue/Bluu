@@ -90,13 +90,17 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 local RequiredServices = (function()
-    for _, Table in next, getreg() do
+    if not getreg then return end
+    for _, Table in getreg() do
         if type(Table) == 'table' and Table.Services then
-            Table.Services.InventoryUI = debug.getupvalue(Table.Services.UI.SafeInit, 18)
             return Table.Services
         end
     end
 end)()
+
+if RequiredServices then
+    RequiredServices.InventoryUI = debug.getupvalue(RequiredServices.UI.SafeInit, 18)
+end
 
 local repo = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/'
 
@@ -431,6 +435,7 @@ Autofarm:AddDropdown('IgnoreMobs', { Text = 'Ignore mobs', Values = MobList, Mul
 Autofarm:AddToggle('DisableOnDeath', { Text = 'Disable on death' })
 
 local Animate = (function()
+    if not getconnections then return end
     for _, Connection in getconnections(game:GetService('RunService').Stepped) do
         local Function = Connection.Function
         if Function and debug.info(Function, 's'):find('Animate') then
@@ -1851,6 +1856,7 @@ if RequiredServices then
 end
 
 local Swing = (function()
+    if not getgc then return end
     for _, Func in getgc() do
         if type(Func) == 'function' and debug.info(Func, 'n') == 'Swing' then
             return Func
