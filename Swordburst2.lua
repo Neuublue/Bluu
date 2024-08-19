@@ -760,7 +760,9 @@ local UseSkill = function(Skill)
 end
 
 local Attack = function(Target)
-    if TargetCheck(Target) and Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
+    if not TargetCheck(Target) then return end
+
+    if Toggles.UseSkillPreemptively.Value or Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
         UseSkill(KillauraSkill)
     end
 
@@ -873,6 +875,8 @@ else
 end
 
 Options.SkillToUse:SetValues()
+
+Killaura:AddToggle('UseSkillPreemptively', { Text = 'Use skill preemptively' })
 
 local AdditionalCheats = Main:AddRightGroupbox('Additional cheats')
 
