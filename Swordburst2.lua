@@ -856,13 +856,13 @@ else
     end)
 end
 
-if GetLevel() >= 22 then
+if GetLevel() >= 21 then
     table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
     table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
 else
     local LevelConnection
     LevelConnection = Level.Changed:Connect(function()
-        if GetLevel() < 22 then return end
+        if GetLevel() < 21 then return end
 
         table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
         table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
