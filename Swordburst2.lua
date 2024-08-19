@@ -166,7 +166,7 @@ local HumanoidConnection = function()
     end
 
     Entity:WaitForChild('Stamina').Changed:Connect(function(Value)
-        if Value < 30 and Toggles.ResetOnLowStamina.Value and not KillauraSkill.Active then
+        if Toggles.ResetOnLowStamina.Value and not KillauraSkill.Active and Value < KillauraSkill.Cost then
             Humanoid.Health = 0
         end
     end)
