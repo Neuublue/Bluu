@@ -1282,7 +1282,15 @@ end
 
 local UnownedAnimations = (function()
     local Temp = {}
-    for AnimPack, SwordClass in { Berserker = '2HSword', Ninja = 'Katana', Noble = 'SingleSword', Vigilante = 'DualWield' } do
+    local Animations = {
+        Berserker = '2HSword',
+        Ninja = 'Katana',
+        Noble = 'SingleSword',
+        Vigilante = 'DualWield',
+        SwissSabre = 'Rapier',
+        Swiftstrike = 'Spear'
+    }
+    for AnimPack, SwordClass in Animations do
         if Profile.AnimPacks:FindFirstChild(AnimPack) then continue end
         Temp[AnimPack] = Instance.new('StringValue')
         Temp[AnimPack].Name = AnimPack
