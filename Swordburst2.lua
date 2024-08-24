@@ -419,7 +419,7 @@ local MobList = {
     [2659143505] = { 'Winged Minion', 'Clay Giant', 'Wendigo', 'Grunt', 'Guard Hound', 'Minion', 'Shady Villager', 'Undead Servant', 'Baal, The Tormentor', 'Grim, The Overseer' },
     [573267292] = { 'Batting Eye', 'Lingerer', 'Fishrock Spider', 'Reptasaurus', 'Ent', 'Undead Warrior', 'Enraged Lingerer', 'Undead Berserker', 'Polyserpant', 'Gargoyle Reaper', 'Mortis the Flaming Sear' },
     [548878321] = { 'Giant Praying Mantis', 'Petal Knight', 'Leaf Rhino', 'Sky Raven', 'Wingless Hippogriff', 'Hippogriff', 'Forest Wanderer', 'Dungeon Crusader', 'Formaug the Jungle Giant' },
-    [582198062] = { 'Jelly Wisp', 'Firefly', 'Shroom Back Clam', 'Gloom Shroom', 'Horned Sailfin Iguana', 'Blightmouth', 'Snapper', 'Frogazoid', 'Smashroom' },
+    [582198062] = { 'Jelly Wisp', 'Firefly', 'Shroom Back Clam', 'Gloom Shroom', 'Horned Sailfin Iguana', 'Blightmouth', 'Snapper', 'Frogazoid', 'Smashroom the Mushroom Behemoth' },
     [580239979] = { 'Girdled lizard', 'Angry Cactus', 'Desert Vulture', 'Sand Scorpion', 'Giant Centipede', 'Green Patrolman', 'Centaurian Defender', 'Patrolman Elite', 'Fire Scorpion', `Sa'jun the Centurian Chieftain` },
     [572487908] = { 'Wattlechin Crocodile', 'Birchman', 'Treehorse', 'Treeray', 'Boneling', 'Bamboo Spiderling', 'Bamboo Spider', 'Dungeon Dweller', 'Lion Protector', 'Irath the Lion', 'Rotling', 'Ancient Chest' },
     [555980327] = { 'Snowgre', 'Angry Snowman', 'Icewhal', 'Ice Elemental', 'Snowhorse', 'Ice Walker', 'Alpha Icewhal', 'Qerach the Forgotten Golem', `Ra'thae the Ice King`,
@@ -803,7 +803,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
             if Player == LocalPlayer then continue end
             local TargetCharacter = Player.Character
             if not TargetCharacter then continue end
-            if Toggles.IgnorePlayers.Value[Player.Name] then continue end
+            if Options.IgnorePlayers.Value[Player.Name] then continue end
             if OnCooldown[TargetCharacter] then continue end
             if not TargetCheck(TargetCharacter) then continue end
             if not ((TargetCharacter.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value) then continue end
@@ -1144,8 +1144,7 @@ task.spawn(function()
     }
 
     for _, DoorPosition in HiddenDoors[game.PlaceId] or {} do
-        LocalPlayer:RequestStreamAroundAsync(DoorPosition)
-        task.wait(0.1)
+        LocalPlayer:RequestStreamAroundAsync(DoorPosition, math.huge)
     end
 
     local TeleportSystemIndex = 0
@@ -1325,8 +1324,14 @@ Misc1:AddToggle('UnlockAllCosmeticTags', { Text = 'Unlock all cosmetic tags' }):
 end)
 
 PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(Child)
-    Child.MouseButton1Click:Connect(function()
-        local SwordClass, Animation = table.unpack(Child.Text:gsub('%[', ''):split(']'))
+    Child.Activated:Connect(function()
+        local Animation = (function()
+            for _, Entry in Database.CashShop:GetChildren() do
+                if Entry.Icon.Texture ~= Child.Frame.Icon.Image then continue end
+                return Entry.Name:gsub(' Animation Pack', ''):gsub(' ', '')
+            end
+        end)()
+        local SwordClass = Profile.AnimPacks[Animation].Value
         local SwordAnimation = Profile.AnimSettings[SwordClass]
         SwordAnimation.Value = SwordAnimation.Value == Animation and '' or Animation
         return
