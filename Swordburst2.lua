@@ -162,9 +162,9 @@ local HumanoidConnection = function()
         Function:InvokeServer('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = Equip.Clothing.Value } })
     end)
 
-    if Equip.Right.Value ~= 0 then
-        Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = Equip.Left.Value }, 'Left' })
-    end
+    -- if Equip.Right.Value ~= 0 then
+    --     Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = Equip.Left.Value }, 'Left' })
+    -- end
 
     Entity:WaitForChild('Stamina').Changed:Connect(function(Value)
         if Toggles.ResetOnLowStamina.Value and not KillauraSkill.Active and Value < KillauraSkill.Cost then
@@ -918,6 +918,7 @@ local UseSkill = function(Skill)
     if not Skill.Name then return end
     if Skill.OnCooldown then return end
     if Skill.Cost > Stamina.Value then return end
+    if not (Humanoid.Health > 0) then return end
 
     Skill.OnCooldown = true
     Skill.Active = true
