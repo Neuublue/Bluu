@@ -100,6 +100,7 @@ end)()
 
 if RequiredServices then
     RequiredServices.InventoryUI = debug.getupvalue(RequiredServices.UI.SafeInit, 18)
+    RequiredServices.StatsUI = debug.getupvalue(RequiredServices.UI.SafeInit, 40)
 end
 
 local repo = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/'
@@ -298,7 +299,12 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
                 if not TargetCheck(Mob) then continue end
                 if Toggles.UseWaypoint.Value and (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude > AutofarmRadius then continue end
 
-                local NewDistance = (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+                local MobPosition = Mob.HumanoidRootPart.Position
+                MobPosition = Vector3.new(MobPosition.X, 0, MobPosition.Z)
+                local OurPosition = HumanoidRootPart.Position
+                OurPosition = Vector3.new(OurPosition.X, 0, OurPosition.Z)
+
+                local NewDistance = (MobPosition - OurPosition).Magnitude
                 if Options.PrioritizeMobs.Value[Mob.Name] then
                     if NewDistance < PrioritizedDistance then
                         PrioritizedDistance = NewDistance
@@ -401,38 +407,231 @@ end)
 
 Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite = buggy)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
 Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold', Default = 100, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
-Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 17, Min = -20, Max = 60, Rounding = 0, Suffix = 'm' })
-Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 0, Suffix = 'm' })
+Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 16, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
+Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 1000, Min = 0, Max = 20000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddToggle('UseWaypoint', { Text = 'Use waypoint' }):OnChanged(function(Value)
     Waypoint.CFrame = HumanoidRootPart.CFrame
     WaypointLabel.Visible = Value
 end)
 
-local MobList = {
-    [16810524216] = { 'Ancient Blossom Knight', 'Eternal Blossom Knight', 'Tworz, The Ancient Tree', 'Azeis, Spirit of the Eternal Blossom' },
-    [6144637080] = { 'Crystal Lizard', 'Newborn Abomination', 'Scav', 'Bat', 'Failed Experiment', 'Orange Failed Experiment', 'Blue Failed Experiment', 'Radio Slug', 'Elite Scav', 'Suspended Unborn', 'C-618 Uriotol, The Forgotten Hunter', 'Radioactive Experiment', 'Limor the Devourer', 'Warlord', 'Atheon', 'Ancient Wooden Chest' },
-    [11331145451] = { 'Black Widow', 'Bloodshard Spider', 'Spiritual Hound', 'Hostile Omen', 'Harbinger', 'Mutated Pumpkin', 'Stone Gargoyle', 'Cursed Skeleton', 'Werewolf', 'Mud Brute', 'Sorcerer', 'Elkwood Giant', 'Alpha Werewolf', 'The Cucurbita', 'Bulswick, the Elkwood Behemoth', 'Egnor, the Undead King', 'Magnor, the Necromancer', 'Headless Horseman', 'Candy Chest', 'Halloween Chest' },
-    [13051622258] = { 'Crystalite', 'Gemulite', 'Easterian Knight', 'Egg Mimic', 'Killer Bunny', 'Ultra Killer Bunny', '' },
-    [5287433115] = { 'Reaper', 'Elite Reaper', 'DJ Reaper', 'Soul Eater', 'Shadow Figure', 'Meta Figure', '???????', 'Rogue Android', 'Command Falcon', 'Armageddon Eagle',
-    'Sentry', 'Watcher', 'Wa, the Curious', 'Ra, the Enlightener', 'Da, the Demeanor', 'Ka, the Mischief', 'Za, the Eldest', 'Duality Reaper', 'Saurus, the All-Seeing', 'Neon Chest', 'Diamond Chest'},
-    [2659143505] = { 'Winged Minion', 'Clay Giant', 'Wendigo', 'Grunt', 'Guard Hound', 'Minion', 'Shady Villager', 'Undead Servant', 'Baal, The Tormentor', 'Grim, The Overseer' },
-    [573267292] = { 'Batting Eye', 'Lingerer', 'Fishrock Spider', 'Reptasaurus', 'Ent', 'Undead Warrior', 'Enraged Lingerer', 'Undead Berserker', 'Polyserpant', 'Gargoyle Reaper', 'Mortis the Flaming Sear' },
-    [548878321] = { 'Giant Praying Mantis', 'Petal Knight', 'Leaf Rhino', 'Sky Raven', 'Wingless Hippogriff', 'Hippogriff', 'Forest Wanderer', 'Dungeon Crusader', 'Formaug the Jungle Giant' },
-    [582198062] = { 'Jelly Wisp', 'Firefly', 'Shroom Back Clam', 'Gloom Shroom', 'Horned Sailfin Iguana', 'Blightmouth', 'Snapper', 'Frogazoid', 'Smashroom the Mushroom Behemoth' },
-    [580239979] = { 'Girdled lizard', 'Angry Cactus', 'Desert Vulture', 'Sand Scorpion', 'Giant Centipede', 'Green Patrolman', 'Centaurian Defender', 'Patrolman Elite', 'Fire Scorpion', `Sa'jun the Centurian Chieftain` },
-    [572487908] = { 'Wattlechin Crocodile', 'Birchman', 'Treehorse', 'Treeray', 'Boneling', 'Bamboo Spiderling', 'Bamboo Spider', 'Dungeon Dweller', 'Lion Protector', 'Irath the Lion', 'Rotling', 'Ancient Chest' },
-    [555980327] = { 'Snowgre', 'Angry Snowman', 'Icewhal', 'Ice Elemental', 'Snowhorse', 'Ice Walker', 'Alpha Icewhal', 'Qerach the Forgotten Golem', `Ra'thae the Ice King`,
-    'Evergreen Sentinel', 'Crystalite', 'Gemulite', 'Icy Imp', 'Holiday Android', 'Jolrock the Snow Protecter', 'Withered Wintula' },
-    [548231754] = { 'Leaf Beetle', 'Leaf Ogre', 'Leafray', 'Pearl Keeper', 'Bushback Tortoise', 'Giant Ruins Hornet', 'Wasp', 'Pearl Guardian', 'Redthorn Tortoise', 'Borik the BeeKeeper' },
-    [542351431] = { 'Frenzy Boar', 'Hermit Crab', 'Wolf', 'Bear', 'Earthen Crab', 'Earthen Boar', 'Ruin Knight', 'Draconite', 'Ruined Kobold Knight', 'Ruin Kobold Knight', 'Dire Wolf', 'Ruined Kobold Lord', 'Rahjin the Thief King' },
-    [540240728] = { 'Dummy', 'Statue', 'Platemail', 'Iris Dominus Dummy' },
-    [18729767954] = { 'Burger Mimic', 'Cheese-Dip Slime', 'Jelly Slime', 'Rapapouillie', 'Meatball Abomination', 'The Waiter', 'Ramseis, Chef os Souls' }
-}
+local MobList = {}
 
-MobList = MobList[game.PlaceId] or {}
-for _, Chest in { 'Wood Chest', 'Iron Chest', 'Gold Chest' } do
-    table.insert(MobList, Chest)
+if RequiredServices then
+    local MobDataCache = RequiredServices.StatsUI.MobDataCache
+
+    for Mob, _ in MobDataCache do
+        table.insert(MobList, Mob)
+    end
+
+    table.sort(MobList, function(Mob1, Mob2)
+        return MobDataCache[Mob1].HealthValue > MobDataCache[Mob2].HealthValue
+    end)
+else
+    MobList = {
+        [540240728] = { -- arcadia
+            'Iris Dominus Dummy',
+            'Dywane',
+            'Nightmare Kobold Lord',
+            'Platemail',
+            'Statue',
+            'Dummy'
+        }, [542351431] = { -- floor 1
+            'Rahjin the Thief King',
+            'Ruined Kobold Lord',
+            'Dire Wolf',
+            'Dementor',
+            'Ruined Kobold Knight',
+            'Ruin Kobold Knight',
+            'Ruin Knight',
+            'Draconite',
+            'Bear',
+            'Earthen Crab',
+            'Earthen Boar',
+            'Wolf',
+            'Hermit Crab',
+            'Frenzy Boar',
+            'Item Crystal',
+            'Iron Chest',
+            'Wood Chest',
+        }, [737272595] = { -- battle arena
+        }, [548231754] = { -- floor 2
+            'Gorrock the Grove Protector',
+            'Borik the BeeKeeper',
+            'Pearl Guardian',
+            'Redthorn Tortoise',
+            'Bushback Tortoise',
+            'Giant Ruins Hornet',
+            'Wasp',
+            'Pearl Keeper',
+            'Leafray',
+            'Leaf Ogre',
+            'Leaf Beetle',
+            'Dementor',
+            'Iron Chest',
+            'Wood Chest'
+        }, [555980327] = { -- floor 3
+            `Ra'thae the Ice King`,
+            'Qerach the Forgotten Golem',
+            'Alpha Icewhal',
+            'Ice Elemental',
+            'Ice Walker',
+            'Icewhal',
+            'Angry Snowman',
+            'Snowhorse',
+            'Snowgre',
+            'Dementor',
+            'Iron Chest',
+            'Wood Chest'
+        }, [572487908] = { -- floor 4
+            'Irath the Lion',
+            'Rotling',
+            'Lion Protector',
+            'Dungeon Dweller',
+            'Bamboo Spider',
+            'Boneling',
+            'Birchman',
+            'Treeray Old',
+            'Treeray',
+            'Bamboo Spiderling',
+            'Treehorse',
+            'Wattlechin Crocodile',
+            'Dementor',
+            'Ancient Chest',
+            'Gold Chest',
+            'Iron Chest',
+            'Wood Chest'
+        }, [580239979] = { -- floor 5
+            `Sa'jun the Centurian Chieftain`,
+            'Fire Scorpion',
+            'Centaurian Defender',
+            'Patrolman Elite',
+            'Sand Scorpion',
+            'Giant Centipede',
+            'Green Patrolman',
+            'Desert Vulture',
+            'Angry Cactus',
+            'Girdled Lizard',
+            'Dementor',
+            'Gold Chest',
+            'Iron Chest',
+            'Wood Chest'
+        }, [566212942] = { -- floor 6
+        }, [582198062] = { -- floor 7
+            'Smashroom the Mushroom Behemoth',
+            'Frogazoid',
+            'Snapper',
+            'Blightmouth',
+            'Horned Sailfin Iguana',
+            'Gloom Shroom',
+            'Shroom Back Clam',
+            'Firefly',
+            'Jelly Wisp',
+            'Dementor',
+            'Gold Chest',
+            'Iron Chest'
+        }, [548878321] = { -- floor 8
+            'Formaug the Jungle Giant',
+            'Hippogriff',
+            'Dungeon Crusader',
+            'Wingless Hippogriff',
+            'Forest Wanderer',
+            'Sky Raven',
+            'Leaf Rhino',
+            'Petal Knight',
+            'Giant Praying Mantis',
+            'Dementor',
+            'Gold Chest',
+            'Iron Chest'
+        }, [573267292] = { -- floor 9
+            'Mortis the Flaming Sear',
+            'Polyserpant',
+            'Gargoyle Reaper',
+            'Ent',
+            'Undead Berserker',
+            'Reptasaurus',
+            'Undead Warrior',
+            'Enraged Lingerer',
+            'Fishrock Spider',
+            'Lingerer',
+            'Batting Eye',
+            'Dementor',
+            'Gold Chest',
+            'Iron Chest'
+        }, [2659143505] = { -- floor 10
+            'Grim, The Overseer',
+            'Baal, The Tormentor',
+            'Undead Servant',
+            'Wendigo',
+            'Clay Giant',
+            'Guard Hound',
+            'Grunt',
+            'Winged Minion',
+            'Shady Villager',
+            'Minion',
+            'Dementor',
+            'Gold Chest',
+            'Iron Chest'
+        }, [5287433115] = { -- floor 11
+            'Saurus, the All-Seeing',
+            'Za, the Eldest',
+            'Da, the Demeanor',
+            'Duality Reaper',
+            'Duality Reaper (Old)',
+            'Ka, the Mischief',
+            'Ra, the Enlightener',
+            'Neon Chest',
+            'Wa, the Curious',
+            'Meta Figure',
+            'Rogue Android',
+            '???????',
+            'Shadow Figure',
+            'DJ Reaper',
+            'Armageddon Eagle',
+            'Elite Reaper',
+            'Watcher',
+            'Command Falcon',
+            'Soul Eater',
+            'Reaper',
+            'Sentry',
+            'Dementor',
+            'OG Duality Reaper',
+            'OG Za, the Eldest',
+            'Cybold',
+            'Diamond Chest'
+        }, [6144637080] = { -- floor 12
+            'Suspended Unborn',
+            'Limor The Devourer',
+            'Warlord',
+            'Radioactive Experiment',
+            'Ancient Wood Chest',
+            'C-618 Uriotol, The Forgotten Hunter',
+            'Bat',
+            'Elite Scav',
+            'Newborn Abomination',
+            'Scav',
+            'Radio Slug',
+            'Crystal Lizard',
+            'Orange Failed Experiment',
+            'Failed Experiment',
+            'Blue Failed Experiment',
+            'Dementor',
+            'Ancient Chest'
+        }, [13965775911] = { -- atheon
+            'Atheon',
+            'Dementor'
+        }, [18729767954] = { -- floor 13
+            'Ramseis, Chef of Souls',
+            'Meatball Abomination',
+            'The Waiter',
+            'Jelly Slime',
+            'Rapapouillie',
+            'Burger Mimic',
+            'Cheese-Dip Slime',
+            'Dementor'
+        }
+    }
+    MobList = MobList[game.PlaceId] or {}
 end
 
 Autofarm:AddDropdown('PrioritizeMobs', { Text = 'Prioritize mobs', Values = MobList, Multi = true, AllowNull = true })
@@ -814,9 +1013,9 @@ end)
 
 Killaura:AddSlider('KillauraDelay', { Text = 'Delay (breaks damage under 0.3)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
 Killaura:AddToggle('AutomaticThreads', { Text = 'Automatic threads', Default = true })
-local Depbox = Killaura:AddDependencyBox();
+local Depbox = Killaura:AddDependencyBox()
 Depbox:AddSlider('KillauraThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
-Depbox:SetupDependencies({ { Toggles.AutomaticThreads, false } });
+Depbox:SetupDependencies({ { Toggles.AutomaticThreads, false } })
 Killaura:AddSlider('KillauraRange', { Text = 'Range', Default = 60, Min = 0, Max = 200, Rounding = 0, Suffix = 'm' })
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
 Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
@@ -916,8 +1115,14 @@ AdditionalCheats:AddToggle('Fly', { Text = 'Fly' }):OnChanged(function(Value)
     while Toggles.Fly.Value do
         local DeltaTime = task.wait()
         if not (Controls.D - Controls.A == 0 and Controls.S - Controls.W == 0) then
-            local TargetPosition = (Camera.CFrame.Rotation * Vector3.new(Controls.D - Controls.A, 0, Controls.S - Controls.W)) * 60 * DeltaTime
-            HumanoidRootPart.CFrame += TargetPosition * math.clamp(DeltaTime * 60 / (TargetPosition).Magnitude, 0, 1)
+            local FlySpeed = 80 -- math.max(Humanoid.WalkSpeed, 60)
+            local TargetPosition = Camera.CFrame.Rotation
+                * Vector3.new(Controls.D - Controls.A, 0, Controls.S - Controls.W)
+                * FlySpeed
+                * DeltaTime
+            HumanoidRootPart.CFrame += TargetPosition
+                * math.clamp(DeltaTime * FlySpeed / TargetPosition.Magnitude, 0, 1)
+            continue
         end
     end
 end)
@@ -1704,7 +1909,104 @@ local KickBox = Misc:AddLeftTabbox()
 local ModDetector = KickBox:AddTab('Mods')
 
 local Mods = {
-    478848349, 48662268, 1801714748, 55715138, 1648776562, 1650372835, 571218846, 367879806, 2462374233, 429690599, 533787513, 2787915712, 104541778, 194755784, 2034822362, 918971121, 161577703, 12671, 4402987, 7858636, 13444058, 24156180, 35311411, 38559058, 45035796, 50879012, 51696441, 57436909, 59341698, 60673083, 62240513, 66489540, 68210875, 72480719, 75043989, 76999375, 81113783, 90258662, 93988508, 101291900, 102706901, 109105759, 111051084, 121104177, 129806297, 151751026, 154847513, 154876159, 161949719, 163733925, 167655046, 167856414, 173116569, 184366742, 220726786, 225179429, 269112100, 271388254, 309775741, 349854657, 354326302, 357870914, 358748060, 371108489, 373676463, 434696913, 440458342, 448343431, 454205259, 455293249, 461121215, 500009807, 542470517, 575623917, 630696850, 810458354, 852819491, 874771971, 1033291447, 1033291716, 1058240421, 1099119770, 1114937945, 1190978597, 1266604023, 1379309318, 1390415574, 1416070243, 1584345084, 1607227678, 1728535349, 1785469599, 1794965093, 1868318363, 1998442044, 2216826820, 2324028828
+    12671,
+    4402987,
+    7858636,
+    13444058,
+    24156180,
+    35311411,
+    38559058,
+    45035796,
+    48662268,
+    50879012,
+    51696441,
+    55715138,
+    57436909,
+    59341698,
+    60673083,
+    62240513,
+    66489540,
+    68210875,
+    72480719,
+    75043989,
+    76999375,
+    81113783,
+    90258662,
+    93988508,
+    101291900,
+    102706901,
+    104541778,
+    109105759,
+    111051084,
+    121104177,
+    129806297,
+    151751026,
+    154847513,
+    154876159,
+    161577703,
+    161949719,
+    163733925,
+    167655046,
+    167856414,
+    173116569,
+    184366742,
+    194755784,
+    220726786,
+    225179429,
+    269112100,
+    271388254,
+    309775741,
+    349854657,
+    354326302,
+    357870914,
+    358748060,
+    367879806,
+    371108489,
+    373676463,
+    429690599,
+    434696913,
+    440458342,
+    448343431,
+    454205259,
+    455293249,
+    461121215,
+    478848349,
+    500009807,
+    533787513,
+    542470517,
+    571218846,
+    575623917,
+    630696850,
+    810458354,
+    852819491,
+    874771971,
+    918971121,
+    1033291447,
+    1033291716,
+    1058240421,
+    1099119770,
+    1114937945,
+    1190978597,
+    1266604023,
+    1379309318,
+    1390415574,
+    1416070243,
+    1584345084,
+    1607227678,
+    1648776562,
+    1650372835,
+    1666720713,
+    1728535349,
+    1785469599,
+    1794965093,
+    1801714748,
+    1868318363,
+    1998442044,
+    2034822362,
+    2216826820,
+    2324028828,
+    2462374233,
+    2787915712
 }
 
 ModDetector:AddToggle('Autokick', { Text = 'Autokick' })
