@@ -406,7 +406,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
 end)
 
 Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite = buggy)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
-Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold', Default = 100, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
+Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold', Default = 80, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 16, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 1000, Min = 0, Max = 20000, Rounding = 0, Suffix = 'm' })
@@ -420,12 +420,12 @@ local MobList = {}
 if RequiredServices then
     local MobDataCache = RequiredServices.StatsUI.MobDataCache
 
-    for Mob, _ in MobDataCache do
-        table.insert(MobList, Mob)
+    for MobName, _ in MobDataCache do
+        table.insert(MobList, MobName)
     end
 
-    table.sort(MobList, function(Mob1, Mob2)
-        return MobDataCache[Mob1].HealthValue > MobDataCache[Mob2].HealthValue
+    table.sort(MobList, function(MobName1, MobName2)
+        return MobDataCache[MobName1].HealthValue > MobDataCache[MobName2].HealthValue
     end)
 else
     MobList = {
@@ -881,7 +881,7 @@ local GetKillauraThreads = function(Entity)
 
     if KillauraSkill.Active then
         local SkillMultipliers = {
-            ['Sweeping Strike'] = 3,
+            -- ['Sweeping Strike'] = 3,
             ['Leaping Slash'] = 3.3,
             ['Summon Pistol'] = 4.35,
         }
@@ -1059,14 +1059,14 @@ else
 end
 
 if GetLevel() >= 21 then
-    table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
+    -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
     table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
 else
     local LevelConnection
     LevelConnection = Level.Changed:Connect(function()
         if GetLevel() < 21 then return end
 
-        table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
+        -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
         table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
 
         Options.SkillToUse:SetValues()
