@@ -915,10 +915,10 @@ AttackKey = AttackKey or '2'
 local OnCooldown = {}
 
 local UseSkill = function(Skill)
+    if not (Humanoid.Health > 0) then return end
     if not Skill.Name then return end
     if Skill.OnCooldown then return end
     if Skill.Cost > Stamina.Value then return end
-    if not (Humanoid.Health > 0) then return end
 
     Skill.OnCooldown = true
     Skill.Active = true
@@ -952,6 +952,9 @@ local UseSkill = function(Skill)
         task.wait(0.5)
         Skill.LastHit = false
         Skill.Active = false
+        if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
+            Humanoid.Health = 0
+        end
         if Skill.Name == 'Summon Pistol' then
             task.wait(1)
         end
