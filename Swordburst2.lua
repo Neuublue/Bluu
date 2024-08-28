@@ -879,7 +879,7 @@ local GetKillauraThreads = function(Entity)
 
     local Damage = SwordDamage
 
-    if KillauraSkill.Active then
+    if KillauraSkill.Name and KillauraSkill.Active then
         local SkillMultipliers = {
             -- ['Sweeping Strike'] = 3,
             ['Leaping Slash'] = 3.3,
