@@ -1715,12 +1715,12 @@ PlayersBox:AddButton({ Text = `View player's stats`, Func = function()
         end
 
 		Library:Notify(
-			`{TargetPlayer.Name}'s account is {TargetPlayer.AccountAge} days old, \n`
-				.. `level {GetLevel(PlayerProfile.Stats.Exp.Value)}, \n`
-				.. `has {PlayerProfile.Stats.Vel.Value} vel, \n`
-				.. `floor {#PlayerProfile.Locations:GetChildren() - 2}, \n`
-				.. `{Stats.AnimPacks} animation packs bought, \n`
-				.. `{Stats.Gamepasses} gamepasses bought, \n`
+			`{TargetPlayer.Name}'s account is {TargetPlayer.AccountAge} days old,\n`
+				.. `level {GetLevel(PlayerProfile.Stats.Exp.Value)},\n`
+				.. `has {PlayerProfile.Stats.Vel.Value} vel,\n`
+				.. `floor {#PlayerProfile.Locations:GetChildren() - 2},\n`
+				.. `{Stats.AnimPacks} animation packs bought,\n`
+				.. `{Stats.Gamepasses} gamepasses bought,\n`
 				.. `and {Stats.Skills} special skills unlocked`,
 			10
 		)
