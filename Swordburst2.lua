@@ -1895,16 +1895,20 @@ end)
 
 local LevelsAndVelGained = Drops:AddLabel()
 
-local InitialLevel, InitialVel = GetLevel(), Vel.Value
+local LevelsGained, VelGained = 0, 0
+local LevelOld, VelOld = GetLevel(), Vel.Value
 
 local UpdateLevelAndVel = function()
-    LevelsAndVelGained:SetText(`{GetLevel() - InitialLevel} levels | {Vel.Value - InitialVel} vel gained`)
+    local LevelNew, VelNew = GetLevel(), Vel.Value
+    LevelsGained += LevelNew > LevelOld and LevelNew - LevelOld or 0
+    VelGained += VelNew > VelOld and VelNew - VelOld or 0
+    LevelsAndVelGained:SetText(`{LevelsGained} levels | {VelGained} vel gained`)
+    LevelOld, VelOld = LevelNew, VelNew
 end
 
 UpdateLevelAndVel()
 
 Vel.Changed:Connect(UpdateLevelAndVel)
-
 Level.Changed:Connect(UpdateLevelAndVel)
 
 local KickBox = Misc:AddLeftTabbox()
