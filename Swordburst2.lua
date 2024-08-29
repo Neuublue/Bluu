@@ -428,7 +428,7 @@ if RequiredServices then
         return MobDataCache[MobName1].HealthValue > MobDataCache[MobName2].HealthValue
     end)
 else
-    MobList = {
+    MobList = ({
         [540240728] = { -- arcadia
             'Iris Dominus Dummy',
             'Dywane',
@@ -453,7 +453,7 @@ else
             'Frenzy Boar',
             'Item Crystal',
             'Iron Chest',
-            'Wood Chest',
+            'Wood Chest'
         }, [737272595] = { -- battle arena
         }, [548231754] = { -- floor 2
             'Gorrock the Grove Protector',
@@ -630,8 +630,7 @@ else
             'Cheese-Dip Slime',
             'Dementor'
         }
-    }
-    MobList = MobList[game.PlaceId] or {}
+    })[game.PlaceId] or {}
 end
 
 Autofarm:AddDropdown('PrioritizeMobs', { Text = 'Prioritize mobs', Values = MobList, Multi = true, AllowNull = true })
@@ -1105,7 +1104,7 @@ if RequiredServices then
     AdditionalCheats:AddSlider('SprintSpeed', { Text = 'Sprint speed', Default = 27, Min = 27, Max = 100, Rounding = 0, Suffix = 'mps' })
 else
     UserInputService.InputEnded:Connect(function(Key, GameProcessed)
-        if GameProcessed or Key.KeyCode.Name ~= Profile.Hotkeys.Sprint.Value then return end
+        if GameProcessed or Key.KeyCode.Name ~= Profile.Settings.SprintKey.Value then return end
         Humanoid.WalkSpeed = Options.WalkSpeed.Value
     end)
 
