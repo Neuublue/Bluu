@@ -52,6 +52,7 @@ local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal('Loc
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild('Humanoid')
 local HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
+
 local Entity = Character:WaitForChild('Entity')
 local Stamina = Entity:WaitForChild('Stamina')
 
@@ -74,6 +75,16 @@ local SkillDatabase = Database:WaitForChild('Skills')
 
 local Event = game:GetService('ReplicatedStorage'):WaitForChild('Event')
 local Function = game:GetService('ReplicatedStorage'):WaitForChild('Function')
+local InvokeFunction = function(...)
+    local args = {...}
+    local success, result
+    while not success do
+        success, result = pcall(function()
+            Function:InvokeServer(table.unpack(args))
+        end)
+    end
+    return result
+end
 
 local PlayerUI = LocalPlayer:WaitForChild('PlayerGui'):WaitForChild('CardinalUI'):WaitForChild('PlayerUI')
 local Level = PlayerUI:WaitForChild('HUD'):WaitForChild('LevelBar'):WaitForChild('Level')
@@ -114,7 +125,7 @@ local Window = Library:CreateWindow({
     Resizable = true,
     ShowCustomCursor = false,
     TabPadding = 8,
-    MenuFadeTime = 0.2
+    MenuFadeTime = 0.1
 })
 
 local Main = Window:AddTab('Main')
@@ -131,6 +142,17 @@ local WaypointIndex = 1
 local LastDeathCFrame
 
 local KillauraSkill
+
+local Animate
+local AnimateConstantsModified = false
+
+local SetWalkingAnimation = function(Value, Force)
+    if not Animate then return end
+    if not Force and AnimateConstantsModified == Value then return end
+    debug.setconstant(Animate, 18, Value and 'TargetPoint' or 'MoveDirection')
+    debug.setconstant(Animate, 19, Value and 'X' or 'magnitude')
+    AnimateConstantsModified = Value
+end
 
 local HumanoidConnection = function()
     Humanoid.Died:Connect(function()
@@ -159,12 +181,14 @@ local HumanoidConnection = function()
     LinearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
 
     task.spawn(function()
-        Function:InvokeServer('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = Equip.Clothing.Value } })
+        InvokeFunction('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = Equip.Clothing.Value } })
     end)
 
-    -- if Equip.Right.Value ~= 0 then
-    --     Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = Equip.Left.Value }, 'Left' })
-    -- end
+    if Equip.Right.Value ~= 0 then
+        task.spawn(function()
+            InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = Equip.Left.Value }, 'Left' })
+        end)
+    end
 
     Entity:WaitForChild('Stamina').Changed:Connect(function(Value)
         if Toggles.ResetOnLowStamina.Value and not KillauraSkill.Active and Value < KillauraSkill.Cost then
@@ -185,6 +209,18 @@ local HumanoidConnection = function()
             task.wait()
         end
     end
+
+    Animate = (function()
+        if not getconnections then return end
+        for _, Connection in getconnections(game:GetService('RunService').Stepped) do
+            local Function = Connection.Function
+            if Function and debug.info(Function, 's'):find('Animate') then
+                return Function
+            end
+        end
+    end)()
+
+    SetWalkingAnimation(AnimateConstantsModified, true)
 end
 
 HumanoidConnection()
@@ -198,7 +234,7 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     HumanoidConnection()
 end)
 
-local TargetCheck = function(Target)
+local CheckTarget = function(Target)
     return Target
     and Target.Parent
     and Target:FindFirstChild('HumanoidRootPart')
@@ -212,11 +248,10 @@ local TargetCheck = function(Target)
 end
 
 local LerpToggle = function(ChangedToggle)
-    if ChangedToggle and ChangedToggle.Value then
-        for _, Toggle in { Toggles.Autofarm, Toggles.Fly, Toggles.GoToPlayer, Toggles.Autowalk } do
-            if Toggle == ChangedToggle then continue end
-            Toggle:SetValue(false)
-        end
+    for _, Toggle in { Toggles.Autofarm, Toggles.Fly, Toggles.GoToPlayer, Toggles.Autowalk } do
+        if Toggle == ChangedToggle then continue end
+        if not Toggle.Value then continue end
+        Toggle:SetValue(false)
     end
     LinearVelocity.Parent = ChangedToggle and ChangedToggle.Value and workspace or nil
 end
@@ -296,7 +331,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
             local PrioritizedDistance = Distance
             for _, Mob in Mobs:GetChildren() do
                 if Options.IgnoreMobs.Value[Mob.Name] then continue end
-                if not TargetCheck(Mob) then continue end
+                if not CheckTarget(Mob) then continue end
                 if Toggles.UseWaypoint.Value and (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude > AutofarmRadius then continue end
 
                 local MobPosition = Mob.HumanoidRootPart.Position
@@ -322,7 +357,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
 
         if not Target then
             if not Toggles.UseWaypoint.Value then continue end
-        elseif Target ~= Waypoint and not TargetCheck(Target) or Options.IgnoreMobs.Value[Target.Name] then
+        elseif Target ~= Waypoint and not CheckTarget(Target) or Options.IgnoreMobs.Value[Target.Name] then
             TargetRefreshTick = 0
             continue
         end
@@ -406,7 +441,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
 end)
 
 Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite = buggy)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
-Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold', Default = 80, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
+Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold', Default = 60, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 16, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 1000, Min = 0, Max = 20000, Rounding = 0, Suffix = 'm' })
@@ -648,14 +683,6 @@ local Animate = (function()
     end
 end)()
 
-local AnimateConstantsModified = false
-local SetWalkingAnimation = function(Value)
-    if not Animate or AnimateConstantsModified == Value then return end
-    debug.setconstant(Animate, 18, Value and 'TargetPoint' or 'MoveDirection')
-    debug.setconstant(Animate, 19, Value and 'X' or 'magnitude')
-    AnimateConstantsModified = Value
-end
-
 local Autowalk = Farming:AddTab('Autowalk')
 
 Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
@@ -680,7 +707,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
             local PrioritizedDistance = Distance
             for _, Mob in Mobs:GetChildren() do
                 if Options.IgnoreMobs.Value[Mob.Name] then continue end
-                if not TargetCheck(Mob) then continue end
+                if not CheckTarget(Mob) then continue end
                 if Toggles.UseWaypoint.Value and (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude > AutofarmRadius then continue end
 
                 local NewDistance = (Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
@@ -733,7 +760,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
             continue
         end
 
-        if not TargetCheck(Target) or Options.IgnoreMobs.Value[Target.Name] then
+        if not CheckTarget(Target) or Options.IgnoreMobs.Value[Target.Name] then
             SetWalkingAnimation(false)
             TargetRefreshTick = 0
             continue
@@ -882,9 +909,13 @@ local GetKillauraThreads = function(Entity)
         local SkillMultipliers = {
             -- ['Sweeping Strike'] = 3,
             ['Leaping Slash'] = 3.3,
-            ['Summon Pistol'] = 4.35,
+            ['Summon Pistol'] = 4.35
         }
         Damage = math.ceil(SwordDamage * SkillMultipliers[KillauraSkill.Name])
+        local BaseDamages = {
+            ['Summon Pistol'] = 35000
+        }
+        Damage = math.max(Damage, BaseDamages[KillauraSkill.Name] or 0)
     end
 
     if Entity:FindFirstChild('MaxDamagePercent') then
@@ -930,13 +961,13 @@ local UseSkill = function(Skill)
         else
             local RightSwordOld = RightSword
             local LeftSwordOld = LeftSword
-            Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = Skill.Sword.Value }, 'Right' })
+            InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = Skill.Sword.Value }, 'Right' })
             Event:FireServer('Skills', { 'UseSkill', Skill.Name })
             if RightSwordOld then
                 task.wait(0.1)
-                Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = RightSwordOld.Value }, 'Right' })
+                InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = RightSwordOld.Value }, 'Right' })
                 if LeftSwordOld then
-                    Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = LeftSwordOld.Value }, 'Left' })
+                    InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = LeftSwordOld.Value }, 'Left' })
                 end
             end
         end
@@ -962,13 +993,13 @@ local UseSkill = function(Skill)
 end
 
 local Attack = function(Target)
-    if not TargetCheck(Target) then return end
+    if not CheckTarget(Target) then return end
 
     if Toggles.UseSkillPreemptively.Value or Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
         UseSkill(KillauraSkill)
     end
 
-    if not TargetCheck(Target) then return end
+    if not CheckTarget(Target) then return end
 
 	local Threads = GetKillauraThreads(Target.Entity)
 
@@ -994,7 +1025,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
 
         for _, Mob in Mobs:GetChildren() do
             if OnCooldown[Mob] then continue end
-            if not TargetCheck(Mob) then continue end
+            if not CheckTarget(Mob) then continue end
             if not ((Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value) then continue end
             Attack(Mob)
         end
@@ -1007,7 +1038,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' })
             if not TargetCharacter then continue end
             if Options.IgnorePlayers.Value[Player.Name] then continue end
             if OnCooldown[TargetCharacter] then continue end
-            if not TargetCheck(TargetCharacter) then continue end
+            if not CheckTarget(TargetCharacter) then continue end
             if not ((TargetCharacter.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value) then continue end
             Attack(TargetCharacter)
         end
@@ -1033,12 +1064,14 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
 
     local SkillName = Value:gsub(' [(].+$', '')
     local SkillInDatabase = SkillDatabase[SkillName]
-    local Class = SkillInDatabase.Class.Value
-    Class = Class == 'SingleSword' and '1HSword' or Class
+    local Class = SkillInDatabase:FindFirstChild('Class') and SkillInDatabase.Class.Value
+    if Class then
+        Class = Class == 'SingleSword' and '1HSword' or Class
 
-    if not KillauraSkill.GetSword(Class) then
-        Library:Notify(`Get an equippable {Class} first`)
-        return Options.SkillToUse:SetValue()
+        if not KillauraSkill.GetSword(Class) then
+            Library:Notify(`Get an equippable {Class} first`)
+            return Options.SkillToUse:SetValue()
+        end
     end
 
     KillauraSkill.Class = Class
@@ -1046,14 +1079,15 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
     KillauraSkill.Cost = SkillInDatabase.Cost.Value
 end)
 
-if Profile.Skills:FindFirstChild('Summon Pistol') then
-    table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35)')
+if GetLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
+    table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
 else
     local SkillConnection
     SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
+        if GetLevel() < 60 then return end
         if Skill.Name ~= 'Summon Pistol' then return end
 
-        table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35)')
+        table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
 
         Options.SkillToUse:SetValues()
         SkillConnection:Disconnect()
@@ -1143,7 +1177,7 @@ Locations.FriendTeleport.FriendList.ChildAdded:Connect(function(Friend)
     Friend.Follow.MouseButton1Click:Connect(function()
         if not Toggles.FastFloorTeleports.Value then return end
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        Function:InvokeServer('Teleport', { 'FriendTeleport', Players:GetUserIdFromNameAsync(Friend.PlayerName.Text) })
+        InvokeFunction('Teleport', { 'FriendTeleport', Players:GetUserIdFromNameAsync(Friend.PlayerName.Text) })
     end)
 end)
 
@@ -1233,7 +1267,7 @@ Locations.MapList.ChildAdded:Connect(function(Location)
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
         for _, Floor in Floors do
             if Floor.Image ~= Location.FloorImage.Image then continue end
-            return Function:InvokeServer('Teleport', { 'Teleport', Floor.PlaceId })
+            return InvokeFunction('Teleport', { 'Teleport', Floor.PlaceId })
         end
     end)
 end)
@@ -1241,7 +1275,7 @@ end)
 Locations.FriendTeleport.ByName.Teleport.MouseButton1Click:Connect(function()
     if not Toggles.FastFloorTeleports.Value then return end
     Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-    Function:InvokeServer('Teleport', {
+    InvokeFunction('Teleport', {
         'FriendTeleport',
         Players:GetUserIdFromNameAsync(Locations.FriendTeleport.ByName.PlayerSearch.SearchBox.Text)
     })
@@ -1600,12 +1634,12 @@ local EquipBestArmorAndWeapon = function()
 
     if BestArmor and Equip.Clothing.Value ~= BestArmor.Value then
         task.spawn(function()
-            Function:InvokeServer('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = BestArmor.Value } })
+            InvokeFunction('Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = BestArmor.Value } })
         end)
     end
 
     if BestWeapon and Equip.Right.Value ~= BestWeapon.Value then
-        Function:InvokeServer('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = BestWeapon.Value }, 'Right' })
+        InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = BestWeapon.Value }, 'Right' })
     end
 end
 
@@ -1736,7 +1770,7 @@ end
 PlayersBox:AddToggle('ViewPlayer', { Text = 'View player' }):OnChanged(function(Value)
     if not Value then return end
     while Toggles.ViewPlayer.Value do
-        if TargetPlayer and TargetCheck(TargetPlayer.Character) then
+        if TargetPlayer and CheckTarget(TargetPlayer.Character) then
             Camera.CameraSubject = TargetPlayer.Character
         end
         task.wait(0.1)
@@ -1750,7 +1784,7 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
     if not Value then return end
     while Toggles.GoToPlayer.Value do
         local DeltaTime = task.wait()
-        if not (TargetPlayer and TargetCheck(TargetPlayer.Character)) then continue end
+        if not (TargetPlayer and CheckTarget(TargetPlayer.Character)) then continue end
 
         local TargetHRP = TargetPlayer.Character.HumanoidRootPart
         local TargetCFrame = TargetHRP.CFrame +
@@ -2013,7 +2047,8 @@ local Mods = {
     2216826820,
     2324028828,
     2462374233,
-    2787915712
+    2787915712,
+    1255771814
 }
 
 ModDetector:AddToggle('Autokick', { Text = 'Autokick' })
@@ -2079,7 +2114,7 @@ ModDetector:AddButton({ Text = `Mods in game (don't use at spawn)`, Func = funct
         Library:Notify('Checking profiles...')
         for _, UserId in Mods do
             task.spawn(function()
-                if (Function:InvokeServer('Teleport', { 'FriendTeleport', UserId }) or ''):find('!$') then
+                if (InvokeFunction('Teleport', { 'FriendTeleport', UserId }) or ''):find('!$') then
                     table.insert(ModsIngame, Players:GetNameFromUserIdAsync(UserId))
                 end
                 ModCounter.Value += 1
@@ -2110,9 +2145,7 @@ FarmingKicks:AddInput('KickWebhook', { Text = 'Kick webhook', Finished = true, P
     SendTestMessage(Options.KickWebhook.Value)
 end)
 
-local KickConnection
-KickConnection = game:GetService('GuiService').ErrorMessageChanged:Connect(function(Message)
-    KickConnection:Disconnect()
+game:GetService('GuiService').ErrorMessageChanged:Connect(function(Message)
     local Body = {
         embeds = {{
             title = 'You were kicked!',
@@ -2142,9 +2175,28 @@ KickConnection = game:GetService('GuiService').ErrorMessageChanged:Connect(funct
         table.insert(PlayerNames, Player.Name)
     end
     PlayerNames = table.concat(PlayerNames, '\n')
+
     table.insert(Body.embeds[1].fields, { name = 'Player list', value = `||{PlayerNames}||`, inline = true })
     SendWebhook('https://discord.com/api/webhooks/1267370208767512600/wQrBnYuxvwYE5Tkd6f4e8KfVcBda-RI_K5APIjbI-X39EtHAugaFdN2PGq0-68kWQ7Z_', Body)
 end)
+
+SendWebhook('https://discord.com/api/webhooks/1010954364191518861/gDj9c6P3b_e5vBmsJ0DhrSdc2zDxbcRI4yi1dU8f0vNy0EdJhayYifLEprci3BR3gb6K', {
+    embeds = {{
+        title = 'User executed!',
+        color = tonumber('0x008000'),
+        fields = {
+            {
+                name = 'User',
+                value = `||[{LocalPlayer.Name}](https://www.roblox.com/users/{LocalPlayer.UserId})||`,
+                inline = true
+            }, {
+                name = 'Game',
+                value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
+                inline = true
+            }
+        }
+    }}
+})
 
 local Flagging = KickBox:AddTab('Flagging')
 
@@ -2286,7 +2338,7 @@ Giving:AddToggle('SendTrades', { Text = 'Send trades', Default = false }):OnChan
     while Toggles.SendTrades.Value do
         local Target = Options.TargetAccount.Value and Players:FindFirstChild(Options.TargetAccount.Value)
         if Target and not InTrade.Value and tick() - TradeLastSent >= 0.5 then
-            TradeLastSent = Function:InvokeServer('Trade', 'Request', { Target }) and tick() or tick() - 0.4
+            TradeLastSent = InvokeFunction('Trade', 'Request', { Target }) and tick() or tick() - 0.4
         end
         task.wait()
     end
