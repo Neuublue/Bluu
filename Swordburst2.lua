@@ -10,8 +10,6 @@ if game.GameId ~= 212154879 then return end -- Swordburst 2
 --     queue_on_teleport(`loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/Swordburst2.lua'))()`)
 -- end
 
-local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
-
 local SendWebhook = function(Url, Body, Ping)
     if not (typeof(Url) == 'string' and string.match(Url, '^https://discord')) then return end
     if not typeof(Body) == 'table' then return end
@@ -19,15 +17,11 @@ local SendWebhook = function(Url, Body, Ping)
     Body.content = Ping and '@everyone' or nil
     Body.username = 'Bluu'
     Body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-    if not Body.embeds then
-        Body.embeds = { {} }
-    end
-    Body.embeds[1].footer = {
-        text = 'Bluu',
-        icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-    }
+    Body.embeds = Body.embeds or {{}}
     Body.embeds[1].timestamp = DateTime:now():ToIsoDate()
-    http_request({
+    Body.embeds[1].footer = { text = 'Bluu', icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png' }
+
+    ((syn and syn.request) or (fluxus and fluxus.request) or http_request or request)({
         Url = Url,
         Body = game:GetService('HttpService'):JSONEncode(Body),
         Method = 'POST',
@@ -2183,7 +2177,7 @@ end)
 SendWebhook('https://discord.com/api/webhooks/1010954364191518861/gDj9c6P3b_e5vBmsJ0DhrSdc2zDxbcRI4yi1dU8f0vNy0EdJhayYifLEprci3BR3gb6K', {
     embeds = {{
         title = 'User executed!',
-        color = tonumber('0x008000'),
+        color = 0x00ff00,
         fields = {
             {
                 name = 'User',
@@ -2192,6 +2186,10 @@ SendWebhook('https://discord.com/api/webhooks/1010954364191518861/gDj9c6P3b_e5vB
             }, {
                 name = 'Game',
                 value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
+                inline = true
+            }, {
+                name = 'Executor',
+                value = getexecutorname(),
                 inline = true
             }
         }
