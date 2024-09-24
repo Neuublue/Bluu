@@ -11,8 +11,9 @@ if game.GameId ~= 212154879 then return end -- Swordburst 2
 -- end
 
 local SendWebhook = function(Url, Body, Ping)
-    if not (typeof(Url) == 'string' and string.match(Url, '^https://discord')) then return end
-    if not typeof(Body) == 'table' then return end
+    if typeof(Url) ~= 'string' then return end
+    if not string.match(Url, '^https://discord') then return end
+    if typeof(Body) ~= 'table' then return end
 
     Body.content = Ping and '@everyone' or nil
     Body.username = 'Bluu'
@@ -21,7 +22,9 @@ local SendWebhook = function(Url, Body, Ping)
     Body.embeds[1].timestamp = DateTime:now():ToIsoDate()
     Body.embeds[1].footer = { text = 'Bluu', icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png' }
 
-    ((syn and syn.request) or (fluxus and fluxus.request) or http_request or request)({
+    local http_request = ((syn and syn.request) or (fluxus and fluxus.request) or http_request or request)
+
+    http_request({
         Url = Url,
         Body = game:GetService('HttpService'):JSONEncode(Body),
         Method = 'POST',
@@ -74,7 +77,7 @@ local InvokeFunction = function(...)
     local success, result
     while not success do
         success, result = pcall(function()
-            Function:InvokeServer(table.unpack(args))
+            return Function:InvokeServer(table.unpack(args))
         end)
     end
     return result
@@ -1342,8 +1345,8 @@ AdditionalCheats:AddDropdown('MapTeleports', { Text = 'Map teleports', Values = 
         if Options.MapTeleports.Value == 'Spawn' then
             Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
         elseif Teleports[Options.MapTeleports.Value] then
-            firetouchinterest(HumanoidRootPart, Teleports[Options.MapTeleports.Value], getexecutorname and getexecutorname():find('Wave') and false or 0)
-            firetouchinterest(HumanoidRootPart, Teleports[Options.MapTeleports.Value], getexecutorname and getexecutorname():find('Wave') and true or 1)
+            firetouchinterest(HumanoidRootPart, Teleports[Options.MapTeleports.Value], 0)
+            firetouchinterest(HumanoidRootPart, Teleports[Options.MapTeleports.Value], 1)
         end
         Options.MapTeleports:SetValue()
     end
@@ -2188,8 +2191,15 @@ SendWebhook('https://discord.com/api/webhooks/1010954364191518861/gDj9c6P3b_e5vB
                 value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
                 inline = true
             }, {
+                name = 'Version',
+                value = getrenv().settings():GetService('DebugSettings').RobloxVersion,
+                inline = true
+            }, {
                 name = 'Executor',
-                value = getexecutorname(),
+                value = (function()
+                    local identifyexecutor = identifyexecutor or getexecutorname
+                    return identifyexecutor and table.concat({ identifyexecutor() }, ' ') or 'Unknown'
+                end)(),
                 inline = true
             }
         }
