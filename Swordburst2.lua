@@ -1,9 +1,9 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
 
+if game.GameId ~= 212154879 then return end -- Swordburst 2
+
 if getgenv().Bluu then return end
 getgenv().Bluu = true
-
-if game.GameId ~= 212154879 then return end -- Swordburst 2
 
 -- local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
 -- if queue_on_teleport then
@@ -55,7 +55,8 @@ local Stamina = Entity:WaitForChild('Stamina')
 
 local Camera = workspace.CurrentCamera or workspace:GetPropertyChangedSignal('CurrentCamera'):Wait() or workspace.CurrentCamera
 
-local Profile = game:GetService('ReplicatedStorage'):WaitForChild('Profiles'):WaitForChild(LocalPlayer.Name)
+local Profiles = game:GetService('ReplicatedStorage'):WaitForChild('Profiles')
+local Profile = Profiles:WaitForChild(LocalPlayer.Name)
 local Inventory = Profile:WaitForChild('Inventory')
 
 local Equip = Profile:WaitForChild('Equip')
@@ -107,8 +108,10 @@ local RequiredServices = (function()
 end)()
 
 if RequiredServices then
-    RequiredServices.InventoryUI = debug.getupvalue(RequiredServices.UI.SafeInit, 18)
-    RequiredServices.StatsUI = debug.getupvalue(RequiredServices.UI.SafeInit, 40)
+    local SafeInit = RequiredServices.UI.SafeInit
+    RequiredServices.InventoryUI = debug.getupvalue(SafeInit, 18)
+    RequiredServices.StatsUI = debug.getupvalue(SafeInit, 40)
+    RequiredServices.TradeUI = debug.getupvalue(SafeInit, 31)
 end
 
 local repo = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/'
@@ -364,7 +367,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
 
         local TargetPosition = TargetHRP.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
         if TargetHRP:FindFirstChild('BodyVelocity') then
-            TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
+            TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
         end
 
         if Options.AutofarmHorizontalOffset.Value > 0 then
@@ -397,7 +400,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
             while tick() - StartTime < 0.8 do
                 TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetHRP.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
                 if TargetHRP:FindFirstChild('BodyVelocity') then
-                    TargetCFrame += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
+                    TargetCFrame += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
                 end
 
                 if Options.AutofarmHorizontalOffset.Value > 0 then
@@ -728,7 +731,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
                 local TargetHRP = Target.HumanoidRootPart
                 local TargetPosition = TargetHRP.CFrame.Position
                 if TargetHRP:FindFirstChild('BodyVelocity') then
-                    TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
+                    TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
                 end
 
                 if Options.AutowalkHorizontalOffset.Value > 0 then
@@ -1715,7 +1718,7 @@ PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, Specia
     TargetPlayer = Players[PlayerName]
 
     if RequiredServices and Toggles.ViewPlayersInventory.Value and TargetPlayer then
-        debug.setupvalue(GetInventoryDataOld, 2, Profile.Parent[TargetPlayer.Name])
+        debug.setupvalue(GetInventoryDataOld, 2, Profiles[TargetPlayer.Name])
     end
 end)
 
@@ -1723,7 +1726,7 @@ PlayersBox:AddButton({ Text = `View player's stats`, Func = function()
     if not Options.PlayerList.Value then return end
 
     pcall(function()
-        local PlayerProfile = Profile.Parent:FindFirstChild(TargetPlayer.Name)
+        local PlayerProfile = Profiles:FindFirstChild(TargetPlayer.Name)
 
         if PlayerProfile:WaitForChild('Locations'):FindFirstChild('1') then
             PlayerProfile.Locations['1']:Destroy()
@@ -1760,7 +1763,7 @@ end })
 
 if RequiredServices then
     PlayersBox:AddToggle('ViewPlayersInventory', { Text = `View player's inventory` }):OnChanged(function(Value)
-        debug.setupvalue(GetInventoryDataOld, 2, (Value and TargetPlayer and Profile.Parent[TargetPlayer.Name]) or Profile)
+        debug.setupvalue(GetInventoryDataOld, 2, (Value and TargetPlayer and Profiles[TargetPlayer.Name]) or Profile)
     end)
 end
 
