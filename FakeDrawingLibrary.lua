@@ -1005,8 +1005,8 @@ do
 	drawing.cache = cache
 end
 
-setreadonly(drawing, true)
-setreadonly(drawing.Fonts, true)
+-- setreadonly(drawing, true)
+-- setreadonly(drawing.Fonts, true)
 
 --[[ Environment ]]--
 
