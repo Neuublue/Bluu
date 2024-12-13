@@ -366,9 +366,9 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
         if not TargetHRP then continue end
 
         local TargetPosition = TargetHRP.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
-        if TargetHRP:FindFirstChild('BodyVelocity') then
-            TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
-        end
+        -- if TargetHRP:FindFirstChild('BodyVelocity') then
+        --     TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
+        -- end
 
         if Options.AutofarmHorizontalOffset.Value > 0 then
             local Difference = HumanoidRootPart.CFrame.Position - TargetHRP.CFrame.Position
@@ -399,9 +399,9 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
             StartTime = tick()
             while tick() - StartTime < 0.8 do
                 TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetHRP.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
-                if TargetHRP:FindFirstChild('BodyVelocity') then
-                    TargetCFrame += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
-                end
+                -- if TargetHRP:FindFirstChild('BodyVelocity') then
+                --     TargetCFrame += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
+                -- end
 
                 if Options.AutofarmHorizontalOffset.Value > 0 then
                     local Difference = HumanoidRootPart.CFrame.Position - TargetHRP.CFrame.Position
@@ -730,9 +730,9 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
             if Target then
                 local TargetHRP = Target.HumanoidRootPart
                 local TargetPosition = TargetHRP.CFrame.Position
-                if TargetHRP:FindFirstChild('BodyVelocity') then
-                    TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
-                end
+                -- if TargetHRP:FindFirstChild('BodyVelocity') then
+                --     TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
+                -- end
 
                 if Options.AutowalkHorizontalOffset.Value > 0 then
                     local Difference = HumanoidRootPart.CFrame.Position - TargetHRP.CFrame.Position
@@ -1016,8 +1016,7 @@ local Attack = function(Target)
     end)
 end
 
-Killaura:AddToggle('Killaura', { Text = 'Enabled' })
-:OnChanged(function(Value)
+Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
     while Toggles.Killaura.Value do
         task.wait(0.01)
 
@@ -1441,23 +1440,19 @@ end)
 
 AdditionalCheats:AddDropdown('PerformanceBoosters', {
     Text = 'Performance boosters',
-    Values = { 'No damage text', 'No damage particles', 'Delete dead mobs', 'No vel obtained in chat', 'Disable rendering on hide', 'Limit FPS on hide' },
+    Values = {
+        'No damage text',
+        'No damage particles',
+        'Delete dead mobs',
+        'No vel obtained in chat',
+        'Disable rendering',
+        'Limit FPS'
+    },
     Multi = true,
     AllowNull = true
-})
-
-UserInputService.WindowFocusReleased:Connect(function()
-    RunService:Set3dRenderingEnabled(not Options.PerformanceBoosters.Value['Disable rendering on hide'])
-    if setfpscap and Options.PerformanceBoosters.Value['Limit FPS on hide'] then
-        setfpscap(15)
-    end
-end)
-
-UserInputService.WindowFocused:Connect(function()
-    RunService:Set3dRenderingEnabled(true)
-    if setfpscap then
-        setfpscap(60)
-    end
+}):OnChanged(function(Values)
+    RunService:Set3dRenderingEnabled(not Values['Disable rendering'])
+    setfpscap(Values['Limit FPS'] and 15 or UserSettings():GetService('UserGameSettings').FramerateCap)
 end)
 
 if RequiredServices then
