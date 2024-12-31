@@ -444,7 +444,7 @@ Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite = buggy)', Def
 Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold', Default = 60, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 16, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
-Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 1000, Min = 0, Max = 20000, Rounding = 0, Suffix = 'm' })
+Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 0, Min = 0, Max = 20000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddToggle('UseWaypoint', { Text = 'Use waypoint' }):OnChanged(function(Value)
     Waypoint.CFrame = HumanoidRootPart.CFrame
     WaypointLabel.Visible = Value
@@ -465,6 +465,7 @@ if RequiredServices then
 else
     MobList = ({
         [540240728] = { -- arcadia
+            'Tremor',
             'Iris Dominus Dummy',
             'Dywane',
             'Nightmare Kobold Lord',
@@ -472,6 +473,7 @@ else
             'Statue',
             'Dummy'
         }, [542351431] = { -- floor 1
+            'Tremor',
             'Rahjin the Thief King',
             'Ruined Kobold Lord',
             'Dire Wolf',
@@ -490,7 +492,9 @@ else
             'Iron Chest',
             'Wood Chest'
         }, [737272595] = { -- battle arena
+            'Tremor'
         }, [548231754] = { -- floor 2
+            'Tremor',
             'Gorrock the Grove Protector',
             'Borik the BeeKeeper',
             'Pearl Guardian',
@@ -506,6 +510,7 @@ else
             'Iron Chest',
             'Wood Chest'
         }, [555980327] = { -- floor 3
+            'Tremor',
             `Ra'thae the Ice King`,
             'Qerach the Forgotten Golem',
             'Alpha Icewhal',
@@ -519,6 +524,7 @@ else
             'Iron Chest',
             'Wood Chest'
         }, [572487908] = { -- floor 4
+            'Tremor',
             'Irath the Lion',
             'Rotling',
             'Lion Protector',
@@ -537,6 +543,7 @@ else
             'Iron Chest',
             'Wood Chest'
         }, [580239979] = { -- floor 5
+            'Tremor',
             `Sa'jun the Centurian Chieftain`,
             'Fire Scorpion',
             'Centaurian Defender',
@@ -552,7 +559,10 @@ else
             'Iron Chest',
             'Wood Chest'
         }, [566212942] = { -- floor 6
+            'Tremor',
+            'Rekindled Unborn'
         }, [582198062] = { -- floor 7
+            'Tremor',
             'Smashroom the Mushroom Behemoth',
             'Frogazoid',
             'Snapper',
@@ -566,6 +576,7 @@ else
             'Gold Chest',
             'Iron Chest'
         }, [548878321] = { -- floor 8
+            'Tremor',
             'Formaug the Jungle Giant',
             'Hippogriff',
             'Dungeon Crusader',
@@ -579,6 +590,7 @@ else
             'Gold Chest',
             'Iron Chest'
         }, [573267292] = { -- floor 9
+            'Tremor',
             'Mortis the Flaming Sear',
             'Polyserpant',
             'Gargoyle Reaper',
@@ -594,6 +606,7 @@ else
             'Gold Chest',
             'Iron Chest'
         }, [2659143505] = { -- floor 10
+            'Tremor',
             'Grim, The Overseer',
             'Baal, The Tormentor',
             'Undead Servant',
@@ -608,6 +621,7 @@ else
             'Gold Chest',
             'Iron Chest'
         }, [5287433115] = { -- floor 11
+            'Tremor',
             'Saurus, the All-Seeing',
             'Za, the Eldest',
             'Da, the Demeanor',
@@ -635,6 +649,7 @@ else
             'Cybold',
             'Diamond Chest'
         }, [6144637080] = { -- floor 12
+            'Tremor',
             'Suspended Unborn',
             'Limor The Devourer',
             'Warlord',
@@ -653,9 +668,11 @@ else
             'Dementor',
             'Ancient Chest'
         }, [13965775911] = { -- atheon
+            'Tremor',
             'Atheon',
             'Dementor'
-        }, [18729767954] = { -- floor 13
+        }, [18729767954] = { -- floor 12.5
+            'Tremor',
             'Ramseis, Chef of Souls',
             'Meatball Abomination',
             'The Waiter',
@@ -1452,7 +1469,9 @@ AdditionalCheats:AddDropdown('PerformanceBoosters', {
     AllowNull = true
 }):OnChanged(function(Values)
     RunService:Set3dRenderingEnabled(not Values['Disable rendering'])
-    setfpscap(Values['Limit FPS'] and 15 or UserSettings():GetService('UserGameSettings').FramerateCap)
+    if setfpscap then
+        setfpscap(Values['Limit FPS'] and 15 or UserSettings():GetService('UserGameSettings').FramerateCap)
+    end
 end)
 
 if RequiredServices then
