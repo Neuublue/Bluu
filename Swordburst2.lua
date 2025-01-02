@@ -121,7 +121,7 @@ local repo = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/'
 local Library = loadstring(game:HttpGet(`{repo}Library.lua`))()
 
 local Window = Library:CreateWindow({
-    Title = 'Bluu | Swordburst 2',
+    Title = 'Bluu 🎄 Swordburst 2',
     Center = true,
     AutoShow = true,
     Resizable = true,
