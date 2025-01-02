@@ -91,6 +91,8 @@ local Chat = PlayerUI:WaitForChild('Chat')
 local Mobs = workspace:WaitForChild('Mobs')
 
 local RunService = game:GetService('RunService')
+local Stepped = game:GetService('RunService').Stepped
+
 local UserInputService = game:GetService('UserInputService')
 local MarketplaceService = game:GetService('MarketplaceService')
 
@@ -173,6 +175,8 @@ local HumanoidConnection = function()
         WaypointIndex += 1
     end)
 
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
     HumanoidRootPart:GetPropertyChangedSignal('Anchored'):Connect(function()
         if not HumanoidRootPart.Anchored then return end
         HumanoidRootPart.Anchored = false
@@ -197,22 +201,14 @@ local HumanoidConnection = function()
     end)
 
     if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
-        local StartTime = tick()
-        while tick() - StartTime < 0.15 do
-            HumanoidRootPart.CFrame = LastDeathCFrame + Vector3.new(0, 1e6 - LastDeathCFrame.Position.Y, 0)
-            task.wait()
-        end
-
-        StartTime = tick()
-        while tick() - StartTime < 0.85 do
-            HumanoidRootPart.CFrame = LastDeathCFrame
-            task.wait()
-        end
+        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+        Function:InvokeServer('Administrator', {})
+        HumanoidRootPart.CFrame = LastDeathCFrame
     end
 
     Animate = (function()
         if not getconnections then return end
-        for _, Connection in getconnections(game:GetService('RunService').Stepped) do
+        for _, Connection in getconnections(Stepped) do
             local Function = Connection.Function
             if Function and debug.info(Function, 's'):find('Animate') then
                 return Function
@@ -247,30 +243,53 @@ local CheckTarget = function(Target)
     )
 end
 
-local LerpToggle = function(ChangedToggle)
-    for _, Toggle in { Toggles.Autofarm, Toggles.Fly, Toggles.GoToPlayer, Toggles.Autowalk } do
-        if Toggle == ChangedToggle then continue end
-        if not Toggle.Value then continue end
-        Toggle:SetValue(false)
-    end
-    LinearVelocity.Parent = ChangedToggle and ChangedToggle.Value and workspace or nil
-end
+local LerpToggle = (function()
+    local LerpToggles = {}
+    return function(ChangedToggle)
+        local Enabled = ChangedToggle and ChangedToggle.Value
+        if not Enabled then
+            LinearVelocity.Parent = nil
+            return
+        end
 
-local NoclipConnection
-local NoclipToggle = function(ChangedToggle)
-    if ChangedToggle and ChangedToggle.Value then
-        if NoclipConnection then return end
-        NoclipConnection = RunService.Stepped:Connect(function()
-            for _, Child in Character:GetChildren() do
-                if not Child:IsA('BasePart') then continue end
-                Child.CanCollide = false
-            end
-        end)
-    elseif NoclipConnection then
-        NoclipConnection:Disconnect()
-        NoclipConnection = nil
+        for _, Toggle in LerpToggles do
+            if Toggle == ChangedToggle then continue end
+            if not Toggle.Value then continue end
+            Toggle:SetValue(false)
+        end
+
+        LerpToggles[ChangedToggle] = ChangedToggle
+
+        LinearVelocity.Parent = workspace
     end
-end
+end)()
+
+local NoclipToggle = (function()
+    local NoclipConnection
+    local NoclipToggles = {}
+    return function(ChangedToggle)
+        if ChangedToggle then
+            NoclipToggles[ChangedToggle] = NoclipToggles[ChangedToggle] or ChangedToggle
+        end
+
+        for _, Toggle in NoclipToggles do
+            if not Toggle.Value then continue end
+            if NoclipConnection then return end
+            NoclipConnection = Stepped:Connect(function()
+                for _, Child in Character:GetChildren() do
+                    if not Child:IsA('BasePart') then continue end
+                    Child.CanCollide = false
+                end
+            end)
+            return
+        end
+
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+            NoclipConnection = nil
+        end
+    end
+end)()
 
 local Waypoint = Instance.new('Part')
 Waypoint.Anchored = true
@@ -389,36 +408,10 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
 
         if HorizontalDifference.Magnitude > Options.TeleportThreshold.Value then
             local TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetPosition
-
-            local StartTime = tick()
-            while tick() - StartTime < 0.15 do
-                HumanoidRootPart.CFrame = TargetCFrame + Vector3.new(0, 1e6 - TargetCFrame.Position.Y, 0)
-                task.wait()
-            end
-
-            StartTime = tick()
-            while tick() - StartTime < 0.8 do
-                TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetHRP.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
-                -- if TargetHRP:FindFirstChild('BodyVelocity') then
-                --     TargetCFrame += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
-                -- end
-
-                if Options.AutofarmHorizontalOffset.Value > 0 then
-                    local Difference = HumanoidRootPart.CFrame.Position - TargetHRP.CFrame.Position
-                    local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
-                    if HorizontalDifference.Magnitude ~= 0 then
-                        TargetCFrame += HorizontalDifference.Unit * Options.AutofarmHorizontalOffset.Value
-                    end
-                end
-
-                HumanoidRootPart.CFrame = TargetCFrame
-
-                if Options.AutofarmSpeed.Value == 0 then
-                    HumanoidRootPart.CFrame *= CFrame.Angles(0, math.pi / 4, 0)
-                end
-
-                task.wait()
-            end
+            Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+            Function:InvokeServer('Administrator', {})
+            HumanoidRootPart.CFrame = TargetCFrame
+            continue
         end
 
         Difference = TargetPosition - HumanoidRootPart.CFrame.Position
@@ -464,7 +457,7 @@ if RequiredServices then
     end)
 else
     MobList = ({
-        [540240728] = { -- arcadia
+        [540240728] = { -- Arcadia
             'Tremor',
             'Iris Dominus Dummy',
             'Dywane',
@@ -472,7 +465,7 @@ else
             'Platemail',
             'Statue',
             'Dummy'
-        }, [542351431] = { -- floor 1
+        }, [542351431] = { -- Floor 1 / Virhst Woodlands
             'Tremor',
             'Rahjin the Thief King',
             'Ruined Kobold Lord',
@@ -491,9 +484,9 @@ else
             'Item Crystal',
             'Iron Chest',
             'Wood Chest'
-        }, [737272595] = { -- battle arena
+        }, [737272595] = { -- Battle Arena
             'Tremor'
-        }, [548231754] = { -- floor 2
+        }, [548231754] = { -- Floor 2 / Redveil Grove
             'Tremor',
             'Gorrock the Grove Protector',
             'Borik the BeeKeeper',
@@ -509,7 +502,7 @@ else
             'Dementor',
             'Iron Chest',
             'Wood Chest'
-        }, [555980327] = { -- floor 3
+        }, [555980327] = { -- Floor 3 / Avalanche Expanse
             'Tremor',
             `Ra'thae the Ice King`,
             'Qerach the Forgotten Golem',
@@ -523,7 +516,7 @@ else
             'Dementor',
             'Iron Chest',
             'Wood Chest'
-        }, [572487908] = { -- floor 4
+        }, [572487908] = { -- Floor 4 / Hidden Wilds
             'Tremor',
             'Irath the Lion',
             'Rotling',
@@ -542,7 +535,7 @@ else
             'Gold Chest',
             'Iron Chest',
             'Wood Chest'
-        }, [580239979] = { -- floor 5
+        }, [580239979] = { -- Floor 5 / Desolate Dunes
             'Tremor',
             `Sa'jun the Centurian Chieftain`,
             'Fire Scorpion',
@@ -558,10 +551,10 @@ else
             'Gold Chest',
             'Iron Chest',
             'Wood Chest'
-        }, [566212942] = { -- floor 6
+        }, [566212942] = { -- Floor 6 / Helmfirth
             'Tremor',
             'Rekindled Unborn'
-        }, [582198062] = { -- floor 7
+        }, [582198062] = { -- Floor 7 / Entoloma Gloomlands
             'Tremor',
             'Smashroom the Mushroom Behemoth',
             'Frogazoid',
@@ -575,7 +568,7 @@ else
             'Dementor',
             'Gold Chest',
             'Iron Chest'
-        }, [548878321] = { -- floor 8
+        }, [548878321] = { -- Floor 8 / Blooming Plateau
             'Tremor',
             'Formaug the Jungle Giant',
             'Hippogriff',
@@ -589,7 +582,7 @@ else
             'Dementor',
             'Gold Chest',
             'Iron Chest'
-        }, [573267292] = { -- floor 9
+        }, [573267292] = { -- Floor 9 / Va' Rok
             'Tremor',
             'Mortis the Flaming Sear',
             'Polyserpant',
@@ -605,7 +598,7 @@ else
             'Dementor',
             'Gold Chest',
             'Iron Chest'
-        }, [2659143505] = { -- floor 10
+        }, [2659143505] = { -- Floor 10 / Transylvania
             'Tremor',
             'Grim, The Overseer',
             'Baal, The Tormentor',
@@ -620,7 +613,7 @@ else
             'Dementor',
             'Gold Chest',
             'Iron Chest'
-        }, [5287433115] = { -- floor 11
+        }, [5287433115] = { -- Floor 11 / Hypersiddia
             'Tremor',
             'Saurus, the All-Seeing',
             'Za, the Eldest',
@@ -648,7 +641,7 @@ else
             'OG Za, the Eldest',
             'Cybold',
             'Diamond Chest'
-        }, [6144637080] = { -- floor 12
+        }, [6144637080] = { -- Floor 12 / Sector-235
             'Tremor',
             'Suspended Unborn',
             'Limor The Devourer',
@@ -667,11 +660,18 @@ else
             'Blue Failed Experiment',
             'Dementor',
             'Ancient Chest'
-        }, [13965775911] = { -- atheon
+        }, [13965775911] = { -- Atheon
             'Tremor',
             'Atheon',
             'Dementor'
-        }, [18729767954] = { -- floor 12.5
+        }, [16810524216] = { -- Floor 12.5 / Eternal Garden
+            'Azeis, Spirit of the Eternal Blossom',
+            'Tworz, The Ancient',
+            'Tremor',
+            'Eternal Blossom Knight',
+            'Ancient Blossom Knight',
+            'Dementor'
+        }, [18729767954] = { -- Floor 12.5 / Glutton's Lair
             'Tremor',
             'Ramseis, Chef of Souls',
             'Meatball Abomination',
@@ -681,18 +681,57 @@ else
             'Burger Mimic',
             'Cheese-Dip Slime',
             'Dementor'
+        }, [11331145451] = { -- Event Floor / Spooky Hollow
+            'Tremor',
+            'Tremor (Old)',
+            'Terror Incarnate',
+            'Enraged Wendigo',
+            'Count Dracula, Vlad Tepes',
+            'Watcher',
+            'Cursed Giant',
+            'Crumbling Gargoyle',
+            'Rotten Brute',
+            'Decayed Warrior',
+            'Dark Spirit',
+            'Abyssal Spider',
+            'Vampiric Bat',
+            'Dementor'
+        }, [15716179871] = { -- Event Floor / Frosty Fields
+            'Tremor',
+            'Vyroth, The Frostflame',
+            'Ghost of the Future',
+            'Krampus',
+            'Kloff, Marauder of the Frost',
+            'Ghost of the Present',
+            'Ghost of the Past',
+            'Rat',
+            'Frostgre',
+            'Icy Imp',
+            'Dark Frost Goblin',
+            'Crystalite',
+            'Gemulite',
+            'Glacius Howler',
+            'Icy Snowman',
+            'Dementor'
         }
     })[game.PlaceId] or {}
 end
+
+-- Autofarm:AddButton({ Text = 'Copy Moblist', Func = function()
+--     if #MobList == 0 then
+--         return setclipboard(`[{game.PlaceId}] = \{\}`)
+--     end
+--     setclipboard(`[{game.PlaceId}] = \{\n'{table.concat(MobList, `',\n'`)}'\n\}`)
+-- end })
 
 Autofarm:AddDropdown('PrioritizeMobs', { Text = 'Prioritize mobs', Values = MobList, Multi = true, AllowNull = true })
 Autofarm:AddDropdown('IgnoreMobs', { Text = 'Ignore mobs', Values = MobList, Multi = true, AllowNull = true })
 
 Autofarm:AddToggle('DisableOnDeath', { Text = 'Disable on death' })
 
-local Animate = (function()
+Animate = (function()
     if not getconnections then return end
-    for _, Connection in getconnections(game:GetService('RunService').Stepped) do
+    for _, Connection in getconnections(Stepped) do
         local Function = Connection.Function
         if Function and debug.info(Function, 's'):find('Animate') then
             return Function
@@ -956,7 +995,7 @@ if RequiredServices then
     AttackKey = debug.getconstant(RequiredServices.Combat.DealDamage, 5)
 end
 
-RPCKey = RPCKey or { '\204', '\214', '\177', '\251' }
+RPCKey = RPCKey or InvokeFunction('RPCKey', {})
 AttackKey = AttackKey or '2'
 
 local OnCooldown = {}
@@ -1095,24 +1134,11 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
     KillauraSkill.Cost = SkillInDatabase.Cost.Value
 end)
 
-if GetLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
-    table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
-else
-    local SkillConnection
-    SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
-        if GetLevel() < 60 then return end
-        if Skill.Name ~= 'Summon Pistol' then return end
-
-        table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
-
-        Options.SkillToUse:SetValues()
-        SkillConnection:Disconnect()
-    end)
-end
-
 if GetLevel() >= 21 then
     -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
     table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
+    Options.SkillToUse:SetValues()
+    Options.SkillToUse:SetValue('Leaping Slash (x3.3)')
 else
     local LevelConnection
     LevelConnection = Level.Changed:Connect(function()
@@ -1122,11 +1148,28 @@ else
         table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
 
         Options.SkillToUse:SetValues()
+        Options.SkillToUse:SetValue('Leaping Slash (x3.3)')
         LevelConnection:Disconnect()
     end)
 end
 
-Options.SkillToUse:SetValues()
+if GetLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
+    table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
+    Options.SkillToUse:SetValues()
+    Options.SkillToUse:SetValue('Summon Pistol (x4.35) (35k base)')
+else
+    local SkillConnection
+    SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
+        if GetLevel() < 60 then return end
+        if Skill.Name ~= 'Summon Pistol' then return end
+
+        table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
+
+        Options.SkillToUse:SetValues()
+        Options.SkillToUse:SetValue('Summon Pistol (x4.35) (35k base)')
+        SkillConnection:Disconnect()
+    end)
+end
 
 Killaura:AddToggle('UseSkillPreemptively', { Text = 'Use skill preemptively' })
 
@@ -1180,122 +1223,34 @@ AdditionalCheats:AddToggle('Fly', { Text = 'Fly' }):OnChanged(function(Value)
     end
 end)
 
-AdditionalCheats:AddToggle('Noclip', { Text = 'Noclip' }):OnChanged(function(Value)
-    if not Toggles.Autofarm.Value then
-        NoclipToggle(Toggles.Noclip)
+AdditionalCheats:AddToggle('Noclip', { Text = 'Noclip' }):OnChanged(function()
+    NoclipToggle(Toggles.Noclip)
+end)
+
+AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click Teleport' }):OnChanged((function()
+    local Mouse = LocalPlayer:GetMouse()
+    local Button1DownConnection
+    local Teleporting = false
+    local OnButton1Down = function()
+        if not Toggles.ClickTeleport.Value then return end
+        if Teleporting then return end
+        Teleporting = true
+        local TargetCFrame = HumanoidRootPart.CFrame.Rotation + Mouse.Hit.Position
+        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+        Function:InvokeServer('Administrator', {})
+        HumanoidRootPart.CFrame = TargetCFrame
+        Teleporting = false
     end
-end)
-
-AdditionalCheats:AddToggle('FastFloorTeleports', { Text = 'Fast floor teleports' })
-
-local Locations = PlayerUI.MainFrame.TabFrames.Locations
-Locations.FriendTeleport.FriendList.ChildAdded:Connect(function(Friend)
-    Friend.Follow.MouseButton1Click:Connect(function()
-        if not Toggles.FastFloorTeleports.Value then return end
-        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        InvokeFunction('Teleport', { 'FriendTeleport', Players:GetUserIdFromNameAsync(Friend.PlayerName.Text) })
-    end)
-end)
-
-local Floors = {
-    {
-        Name = 'Arcadia',
-        Designation = 'F1',
-        Image = 'rbxassetid://615523763',
-        PlaceId = 540240728
-    }, {
-        Name = 'Virhst Woodlands',
-        Designation = 'F1',
-        Image = 'rbxassetid://615506568',
-        PlaceId = 542351431
-    }, {
-        Name = 'Battle Arena',
-        Designation = 'F1',
-        Image = 'rbxassetid://825680829',
-        PlaceId = 737272595,
-        Unlocked = true
-    }, {
-        Name = 'Redveil Grove',
-        Designation = 'F2',
-        Image = 'rbxassetid://730567278',
-        PlaceId = 548231754
-    }, {
-        Name = 'Avalanche Expanse',
-        Designation = 'F3',
-        Image = 'rbxassetid://2154912275',
-        PlaceId = 555980327
-    }, {
-        Name = 'Hidden Wilds',
-        Designation = 'F4',
-        Image = 'rbxassetid://1079562005',
-        PlaceId = 572487908
-    }, {
-        Name = 'Desolate Dunes',
-        Designation = 'F5',
-        Image = 'rbxassetid://1180881560',
-        PlaceId = 580239979
-    }, {
-        Name = 'Helmfirth',
-        Designation = 'F6',
-        Image = 'rbxassetid://1205788593',
-        PlaceId = 566212942
-    }, {
-        Name = 'Entoloma Gloomlands',
-        Designation = 'F7',
-        Image = 'rbxassetid://1230453453',
-        PlaceId = 582198062
-    }, {
-        Name = 'Blooming Plateau',
-        Designation = 'F8',
-        Image = 'rbxassetid://1377821156',
-        PlaceId = 548878321
-    }, {
-        Name = 'Va\' Rok',
-        Designation = 'F9',
-        Image = 'rbxassetid://2154937492',
-        PlaceId = 573267292
-    }, {
-        Name = 'Transylvania',
-        Designation = 'F10',
-        Image = 'rbxassetid://2676660892',
-        PlaceId = 2659143505
-    }, {
-        Name = 'Hypersiddia',
-        Designation = 'F11',
-        Image = 'rbxassetid://5287398273',
-        PlaceId = 5287433115
-    }, {
-        Name = 'Sector - 235',
-        Designation = 'F12',
-        Image = 'rbxassetid://14180629039',
-        PlaceId = 6144637080
-    }, {
-        Name = 'Eternal Garden',
-        Designation = 'F12',
-        Image = 'rbxassetid://16963160635',
-        PlaceId = 16810524216
-    }
-}
-
-Locations.MapList.ChildAdded:Connect(function(Location)
-    Location.Activated:Connect(function()
-        if not Toggles.FastFloorTeleports.Value then return end
-        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        for _, Floor in Floors do
-            if Floor.Image ~= Location.FloorImage.Image then continue end
-            return InvokeFunction('Teleport', { 'Teleport', Floor.PlaceId })
+    return function(Value)
+        if Value then
+            if Button1DownConnection then return end
+            Button1DownConnection = Mouse.Button1Down:Connect(OnButton1Down)
+        elseif Button1DownConnection then
+            Button1DownConnection:Disconnect()
+            Button1DownConnection = nil
         end
-    end)
-end)
-
-Locations.FriendTeleport.ByName.Teleport.MouseButton1Click:Connect(function()
-    if not Toggles.FastFloorTeleports.Value then return end
-    Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-    InvokeFunction('Teleport', {
-        'FriendTeleport',
-        Players:GetUserIdFromNameAsync(Locations.FriendTeleport.ByName.PlayerSearch.SearchBox.Text)
-    })
-end)
+    end
+end)())
 
 local ImportantTeleports = {
     [542351431] = { -- floor 1
@@ -1359,16 +1314,15 @@ local ImportantTeleports = {
 ImportantTeleports = ImportantTeleports[game.PlaceId] or {}
 local Teleports = {}
 
-AdditionalCheats:AddDropdown('MapTeleports', { Text = 'Map teleports', Values = { 'Spawn' }, AllowNull = true }):OnChanged(function()
-    if Options.MapTeleports.Value then
-        if Options.MapTeleports.Value == 'Spawn' then
-            Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        elseif Teleports[Options.MapTeleports.Value] then
-            firetouchinterest(HumanoidRootPart, Teleports[Options.MapTeleports.Value], 0)
-            firetouchinterest(HumanoidRootPart, Teleports[Options.MapTeleports.Value], 1)
-        end
-        Options.MapTeleports:SetValue()
+AdditionalCheats:AddDropdown('MapTeleports', { Text = 'Map teleports', Values = { 'Spawn' }, AllowNull = true }):OnChanged(function(Value)
+    if not Value then return end
+    if Value == 'Spawn' then
+        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    else
+        firetouchinterest(HumanoidRootPart, Teleports[Value], 0)
+        firetouchinterest(HumanoidRootPart, Teleports[Value], 1)
     end
+    Options.MapTeleports:SetValue()
 end)
 
 task.spawn(function()
@@ -1808,18 +1762,9 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
 
         local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
         if HorizontalDifference.Magnitude > 70 then
-            local StartTime = tick()
-            while tick() - StartTime < 0.15 do
-                HumanoidRootPart.CFrame = TargetCFrame + Vector3.new(0, 1e6 - TargetCFrame.Position.Y, 0)
-                task.wait()
-            end
-
-            StartTime = tick()
-            while tick() - StartTime < 0.8 do
-                HumanoidRootPart.CFrame = TargetHRP.CFrame +
-                    Vector3.new(Options.XOffset.Value, Options.YOffset.Value, Options.ZOffset.Value)
-                task.wait()
-            end
+            Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+            Function:InvokeServer('Administrator', {})
+            HumanoidRootPart.CFrame = TargetCFrame
             continue
         end
 
