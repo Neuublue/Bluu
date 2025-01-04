@@ -84,6 +84,12 @@ local InvokeFunction = function(...)
     return result
 end
 
+local GetPing = function()
+    local StartTime = tick()
+    Function:InvokeServer('Administrator', {})
+    return tick() - StartTime
+end
+
 local PlayerUI = LocalPlayer:WaitForChild('PlayerGui'):WaitForChild('CardinalUI'):WaitForChild('PlayerUI')
 local Level = PlayerUI:WaitForChild('HUD'):WaitForChild('LevelBar'):WaitForChild('Level')
 local Chat = PlayerUI:WaitForChild('Chat')
@@ -202,7 +208,7 @@ local HumanoidConnection = function()
 
     if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        Function:InvokeServer('Administrator', {})
+        GetPing()
         HumanoidRootPart.CFrame = LastDeathCFrame
     end
 
@@ -409,7 +415,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
         if HorizontalDifference.Magnitude > Options.TeleportThreshold.Value then
             local TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetPosition
             Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-            Function:InvokeServer('Administrator', {})
+            GetPing()
             HumanoidRootPart.CFrame = TargetCFrame
             continue
         end
@@ -1020,7 +1026,7 @@ local UseSkill = function(Skill)
             InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = Skill.Sword.Value }, 'Right' })
             Event:FireServer('Skills', { 'UseSkill', Skill.Name })
             if RightSwordOld then
-                task.wait(0.1)
+                GetPing()
                 InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = RightSwordOld.Value }, 'Right' })
                 if LeftSwordOld then
                     InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = LeftSwordOld.Value }, 'Left' })
@@ -1078,23 +1084,55 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
 
         if not (Humanoid.Health > 0) then continue end
 
-        for _, Mob in Mobs:GetChildren() do
-            if OnCooldown[Mob] then continue end
-            if not CheckTarget(Mob) then continue end
-            if not ((Mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value) then continue end
-            Attack(Mob)
+        for _, Target in Mobs:GetChildren() do
+            if OnCooldown[Target] then continue end
+            if not CheckTarget(Target) then continue end
+            local TargetCFrame = nil;
+            local TargetCFrameSize = nil;
+            local TargetHumanoidRootPart = Target:FindFirstChild('HumanoidRootPart')
+            if TargetHumanoidRootPart then
+                TargetCFrame = TargetHumanoidRootPart.CFrame
+                TargetCFrameSize = TargetHumanoidRootPart.Size
+            else
+                TargetCFrame, TargetCFrameSize = Target:GetBoundingBox()
+            end
+            if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
+                math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
+                + (KillauraSkill.Active and 30 or 15)
+            then
+                continue
+            elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
+                continue
+            end
+            Attack(Target)
         end
 
         if not Toggles.AttackPlayers.Value then continue end
 
-        for _, Player in Players:GetPlayers() do
-            if Player == LocalPlayer then continue end
-            local TargetCharacter = Player.Character
+        for _, Target in Players:GetPlayers() do
+            if Target == LocalPlayer then continue end
+            local TargetCharacter = Target.Character
             if not TargetCharacter then continue end
-            if Options.IgnorePlayers.Value[Player.Name] then continue end
+            if Options.IgnorePlayers.Value[Target.Name] then continue end
             if OnCooldown[TargetCharacter] then continue end
             if not CheckTarget(TargetCharacter) then continue end
-            if not ((TargetCharacter.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude <= Options.KillauraRange.Value) then continue end
+            local TargetCFrame = nil;
+            local TargetCFrameSize = nil;
+            local TargetHumanoidRootPart = TargetCharacter:FindFirstChild('HumanoidRootPart')
+            if TargetHumanoidRootPart then
+                TargetCFrame = TargetHumanoidRootPart.CFrame
+                TargetCFrameSize = TargetHumanoidRootPart.Size
+            else
+                TargetCFrame, TargetCFrameSize = TargetCharacter:GetBoundingBox()
+            end
+            if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
+                math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
+                + (KillauraSkill.Active and 30 or 15)
+            then
+                continue
+            elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
+                continue
+            end
             Attack(TargetCharacter)
         end
     end
@@ -1105,7 +1143,6 @@ Killaura:AddToggle('AutomaticThreads', { Text = 'Automatic threads', Default = t
 local Depbox = Killaura:AddDependencyBox()
 Depbox:AddSlider('KillauraThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
 Depbox:SetupDependencies({ { Toggles.AutomaticThreads, false } })
-Killaura:AddSlider('KillauraRange', { Text = 'Range', Default = 60, Min = 0, Max = 200, Rounding = 0, Suffix = 'm' })
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
 Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
 
@@ -1237,7 +1274,7 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click Teleport' }):OnChang
         Teleporting = true
         local TargetCFrame = HumanoidRootPart.CFrame.Rotation + Mouse.Hit.Position
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        Function:InvokeServer('Administrator', {})
+        GetPing()
         HumanoidRootPart.CFrame = TargetCFrame
         Teleporting = false
     end
@@ -1431,12 +1468,12 @@ end)
 if RequiredServices then
     local GraphicsServerEventOld = RequiredServices.Graphics.ServerEvent
     RequiredServices.Graphics.ServerEvent = function(...)
-        local Args = {...}
-        if Args[1][1] == 'Damage Text' then
+        local args = {...}
+        if args[1][1] == 'Damage Text' then
             if Options.PerformanceBoosters.Value['No damage text'] then return end
-        elseif Args[1][1] == 'KillFade' then
+        elseif args[1][1] == 'KillFade' then
             if Options.PerformanceBoosters.Value['Delete dead mobs'] then
-                return Args[1][2]:Destroy()
+                return args[1][2]:Destroy()
             end
         end
         return GraphicsServerEventOld(...)
@@ -1444,8 +1481,8 @@ if RequiredServices then
 
     local UIServerEventOld = RequiredServices.UI.ServerEvent
     RequiredServices.UI.ServerEvent = function(...)
-        local Args = {...}
-        if Args[1][2] == 'VelObtained' then
+        local args = {...}
+        if args[1][2] == 'VelObtained' then
             if Options.PerformanceBoosters.Value['No vel obtained in chat'] then return end
         end
         return UIServerEventOld(...)
@@ -1678,15 +1715,11 @@ local PlayersBox = Misc:AddRightGroupbox('Players')
 
 local TargetPlayer
 
-local GetInventoryDataOld = RequiredServices and RequiredServices.InventoryUI.GetInventoryData
-
 PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, SpecialType = 'Player' }):OnChanged(function(PlayerName)
-    if not PlayerName then return end
+    TargetPlayer = PlayerName and Players[PlayerName]
 
-    TargetPlayer = Players[PlayerName]
-
-    if RequiredServices and Toggles.ViewPlayersInventory.Value and TargetPlayer then
-        debug.setupvalue(GetInventoryDataOld, 2, Profiles[TargetPlayer.Name])
+    if getconnections and Toggles.ViewPlayersInventory and Toggles.ViewPlayersInventory.Value then
+        LocalPlayer:SetAttribute('ViewingProfile', PlayerName)
     end
 end)
 
@@ -1729,9 +1762,13 @@ PlayersBox:AddButton({ Text = `View player's stats`, Func = function()
     end)
 end })
 
-if RequiredServices then
+if getconnections then
+    for _, Connection in getconnections(LocalPlayer:GetAttributeChangedSignal('ViewingProfile')) do
+        Connection:Disable()
+    end
+
     PlayersBox:AddToggle('ViewPlayersInventory', { Text = `View player's inventory` }):OnChanged(function(Value)
-        debug.setupvalue(GetInventoryDataOld, 2, (Value and TargetPlayer and Profiles[TargetPlayer.Name]) or Profile)
+        LocalPlayer:SetAttribute('ViewingProfile', Value and Options.PlayerList.Value)
     end)
 end
 
@@ -1751,7 +1788,8 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
     NoclipToggle(Toggles.GoToPlayer)
     if not Value then return end
     while Toggles.GoToPlayer.Value do
-        local DeltaTime = task.wait()
+        task.wait()
+
         if not (TargetPlayer and CheckTarget(TargetPlayer.Character)) then continue end
 
         local TargetHRP = TargetPlayer.Character.HumanoidRootPart
@@ -1763,7 +1801,7 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
         local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
         if HorizontalDifference.Magnitude > 70 then
             Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-            Function:InvokeServer('Administrator', {})
+            GetPing()
             HumanoidRootPart.CFrame = TargetCFrame
             continue
         end
@@ -2198,9 +2236,9 @@ local SwingCheats = Misc:AddRightGroupbox('Swing cheats (can break damage)')
 if RequiredServices then
     local AttackRequestOld = RequiredServices.Combat.AttackRequest
     RequiredServices.Combat.AttackRequest = function(...)
-        local Args = {...}
+        local args = {...}
         if Toggles.OverrideBurstState.Value then
-            debug.setupvalue(Args[3], 2, Options.BurstState.Value)
+            debug.setupvalue(args[3], 2, Options.BurstState.Value)
         end
         return AttackRequestOld(...)
     end
@@ -2382,29 +2420,29 @@ end)
 
 local LastTradeChange
 Event.OnClientEvent:Connect(function(...)
-    local Args = { ... }
-    if not (Args[1] == 'UI' and Args[2][1] == 'Trade') then return end
-    if Args[2][2] == 'Request' then
+    local args = {...}
+    if not (args[1] == 'UI' and args[2][1] == 'Trade') then return end
+    if args[2][2] == 'Request' then
         if not (Toggles.AcceptTrades.Value or Toggles.SendTrades.Value) then return end
-        if Options.TargetAccount.Value == Args[2][3].Name then
+        if Options.TargetAccount.Value == args[2][3].Name then
             Event:FireServer('Trade', 'RequestAccept', {})
             InTrade.Value = true
         else
             Event:FireServer('Trade', 'RequestDecline', {})
         end
-    elseif Args[2][2] == 'TradeChanged' then
-        LastTradeChange = Args[2][3]
+    elseif args[2][2] == 'TradeChanged' then
+        LastTradeChange = args[2][3]
         if not (Toggles.AcceptTrades.Value or Toggles.SendTrades.Value) then return end
         local TargetRole = LastTradeChange.Requester == LocalPlayer and 'Partner' or 'Requester'
         local OurRole = TargetRole == 'Partner' and 'Requester' or 'Partner'
         if not (LastTradeChange[TargetRole .. 'Confirmed'] and not LastTradeChange[OurRole .. 'Accepted']) then return end
         Event:FireServer('Trade', 'TradeConfirm', {})
         Event:FireServer('Trade', 'TradeAccept', {})
-    elseif Args[2][2] == 'RequestAccept' then
+    elseif args[2][2] == 'RequestAccept' then
         InTrade.Value = true
-    elseif Args[2][2] == 'RequestDecline' then
+    elseif args[2][2] == 'RequestDecline' then
         TradeLastSent = 0
-    elseif Args[2][2] == 'TradeCompleted' then
+    elseif args[2][2] == 'TradeCompleted' then
         local TargetRole = LastTradeChange.Requester == LocalPlayer and 'Partner' or 'Requester'
         local OurRole = TargetRole == 'Partner' and 'Requester' or 'Partner'
         for _, ItemData in LastTradeChange[TargetRole .. 'Items'] do
@@ -2422,7 +2460,7 @@ Event.OnClientEvent:Connect(function(...)
         end
         CrystalCounter.Given.Update()
         InTrade.Value = false
-    elseif Args[2][2] == 'TradeCancel' then
+    elseif args[2][2] == 'TradeCancel' then
         InTrade.Value = false
     end
 end)
