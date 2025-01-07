@@ -2045,7 +2045,12 @@ local Mods = {
     2324028828,
     2462374233,
     2787915712,
-    1255771814
+    1255771814,
+    360470140,
+    2475151189,
+    3522932153,
+    3772282131,
+    7557087747
 }
 
 ModDetector:AddToggle('Autokick', { Text = 'Autokick' })
@@ -2174,10 +2179,10 @@ game:GetService('GuiService').ErrorMessageChanged:Connect(function(Message)
     PlayerNames = table.concat(PlayerNames, '\n')
 
     table.insert(Body.embeds[1].fields, { name = 'Player list', value = `||{PlayerNames}||`, inline = true })
-    SendWebhook('https://discord.com/api/webhooks/1267370208767512600/wQrBnYuxvwYE5Tkd6f4e8KfVcBda-RI_K5APIjbI-X39EtHAugaFdN2PGq0-68kWQ7Z_', Body)
+    SendWebhook('https://discord.com/api/webhooks/1326020353960706050/fgrIT4wyRsXpCBT_5V9hjYilpU1XSg2HSmwbjTA44yboGj30vl9CGsoPQmzUKnhiX0mP', Body)
 end)
 
-SendWebhook('https://discord.com/api/webhooks/1010954364191518861/gDj9c6P3b_e5vBmsJ0DhrSdc2zDxbcRI4yi1dU8f0vNy0EdJhayYifLEprci3BR3gb6K', {
+SendWebhook('https://discord.com/api/webhooks/1326020258175385771/P4VWIHIky1AQcRN7D5lUybZBXSaWIT7w_71ihKrofQYDdtKs8YOC19T3q3idI_9TwZ4Y', {
     embeds = {{
         title = 'User executed!',
         color = 0x00ff00,
