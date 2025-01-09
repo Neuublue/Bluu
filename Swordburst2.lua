@@ -1353,13 +1353,13 @@ local Teleports = {}
 
 AdditionalCheats:AddDropdown('MapTeleports', { Text = 'Map teleports', Values = { 'Spawn' }, AllowNull = true }):OnChanged(function(Value)
     if not Value then return end
+    Options.MapTeleports:SetValue()
     if Value == 'Spawn' then
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
     else
         firetouchinterest(HumanoidRootPart, Teleports[Value], 0)
         firetouchinterest(HumanoidRootPart, Teleports[Value], 1)
     end
-    Options.MapTeleports:SetValue()
 end)
 
 task.spawn(function()
@@ -1505,83 +1505,79 @@ else
     end)
 end
 
-
 local Miscs = Main:AddLeftTabbox()
 
 local Misc1 = Miscs:AddTab('Misc')
 
-if RequiredServices then
-    local Animations = {}
-    for _, Animation in Database.Animations:GetChildren() do
-        if table.find({ 'Misc', 'Daggers', 'SwordShield', 'Dagger' }, Animation.Name) then continue end
-        table.insert(Animations, Animation.Name)
-        if not Profile.AnimSettings:FindFirstChild(Animation.Name) then
-            local StringValue = Instance.new('StringValue')
-            StringValue.Name = Animation.Name
-            StringValue.Parent = Profile.AnimSettings
-        end
-    end
-
-    Misc1:AddDropdown('Animations', { Text = 'Animations', Values = Animations, AllowNull = true })
-
-    local CalculateCombatStyleOld = RequiredServices.Combat.CalculateCombatStyle
-    RequiredServices.Combat.CalculateCombatStyle = function(...)
-        return Options.Animations.Value or CalculateCombatStyleOld(...)
-    end
+local AnimPackNames = {}
+for _, AnimPack in game:GetService('StarterPlayer').StarterCharacterScripts.Animate.Packs:GetChildren() do
+    table.insert(AnimPackNames, AnimPack.Name)
 end
 
-local UnownedAnimations = (function()
-    local Temp = {}
-    local Animations = {
-        Berserker = '2HSword',
-        Ninja = 'Katana',
-        Noble = 'SingleSword',
-        Vigilante = 'DualWield',
-        SwissSabre = 'Rapier',
-        Swiftstrike = 'Spear'
-    }
-    for AnimPack, SwordClass in Animations do
-        if Profile.AnimPacks:FindFirstChild(AnimPack) then continue end
-        Temp[AnimPack] = Instance.new('StringValue')
-        Temp[AnimPack].Name = AnimPack
-        Temp[AnimPack].Value = SwordClass
-    end
-    return Temp
-end)()
+local GetCurrentSwordClass = function()
+    if LeftSword then return 'DualWield' end
+    return ItemDatabase[RightSword.Name].Class.Value
+end
+
+Misc1:AddDropdown('ChangeAnimationPack', {
+    Text = 'Change animation pack',
+    Values = AnimPackNames,
+    AllowNull = true
+}):OnChanged(function(AnimPackName)
+    if not AnimPackName then return end
+    Options.ChangeAnimationPack:SetValue()
+    InvokeFunction('CashShop', {
+        'SetAnimPack', {
+            Name = AnimPackName,
+            Value = GetCurrentSwordClass(),
+            Parent = Profile.AnimPacks
+        }
+    })
+end)
+
+local AnimPackSwordClasses = {
+    Berserker = '2HSword',
+    Ninja = 'Katana',
+    Noble = 'SingleSword',
+    Vigilante = 'DualWield',
+    SwissSabre = 'Rapier',
+    Swiftstrike = 'Spear'
+}
+
+local UnownedAnimPacks = {}
+for AnimPackName, SwordClass in AnimPackSwordClasses do
+    if Profile.AnimPacks:FindFirstChild(AnimPackName) then continue end
+    local AnimPack = Instance.new('StringValue')
+    AnimPack.Name = AnimPackName
+    AnimPack.Value = SwordClass
+    UnownedAnimPacks[AnimPackName] = AnimPack
+end
 
 Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs' }):OnChanged(function(Value)
-    for _, AnimPack in UnownedAnimations do
+    for _, AnimPack in UnownedAnimPacks do
         AnimPack.Parent = Value and Profile.AnimPacks or nil
     end
 end)
 
-local UnownedCosmeticTags = (function()
-    local Temp = {}
-    for _, Tag in Profile.CosmeticTags:GetChildren() do
-        if Tag.Value then continue end
-        table.insert(Temp, Tag)
-    end
-    return Temp
-end)()
-
-Misc1:AddToggle('UnlockAllCosmeticTags', { Text = 'Unlock all cosmetic tags' }):OnChanged(function(Value)
-    for _, Tag in UnownedCosmeticTags do
-        Tag.Value = Value
-    end
-end)
-
-PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(Child)
-    Child.Activated:Connect(function()
-        local Animation = (function()
-            for _, Entry in Database.CashShop:GetChildren() do
-                if Entry.Icon.Texture ~= Child.Frame.Icon.Image then continue end
-                return Entry.Name:gsub(' Animation Pack', ''):gsub(' ', '')
+PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(Entry)
+    Entry.Activated:Connect(function()
+        local AnimPackName = (function()
+            for _, Item in Database.CashShop:GetChildren() do
+                if Item.Icon.Texture ~= Entry.Frame.Icon.Image then continue end
+                return Item.Name:gsub(' Animation Pack', ''):gsub(' ', '')
             end
         end)()
-        local SwordClass = Profile.AnimPacks[Animation].Value
-        local SwordAnimation = Profile.AnimSettings[SwordClass]
-        SwordAnimation.Value = SwordAnimation.Value == Animation and '' or Animation
-        return
+        if not UnownedAnimPacks[AnimPackName] then return end
+        local SwordClass = AnimPackSwordClasses[AnimPackName]
+        -- local AnimSetting = Profile.AnimSettings[SwordClass]
+        -- AnimSetting.Value = AnimSetting.Value == AnimPackName and '' or AnimPackName
+        Function:InvokeServer('CashShop', {
+            'SetAnimPack', {
+                Name = AnimPackName,
+                Value = SwordClass,
+                Parent = Profile.AnimPacks
+            }
+        })
     end)
 end)
 
@@ -1832,10 +1828,10 @@ local DropList = {}
 
 Drops:AddDropdown('DropList', { Text = 'Drop list (select to dismantle)', Values = {}, AllowNull = true }):OnChanged(function(DropName)
     if not DropName then return end
+    Options.DropList:SetValue()
     Event:FireServer('Equipment', { 'Dismantle', { DropList[DropName] } })
     DropList[DropName] = nil
     table.remove(Options.DropList.Values, table.find(Options.DropList.Values, DropName))
-    Options.DropList:SetValue()
 end)
 
 local RarityColors = {
@@ -2171,45 +2167,7 @@ game:GetService('GuiService').ErrorMessageChanged:Connect(function(Message)
     }
 
     SendWebhook(Options.KickWebhook.Value, Body, Toggles.PingInMessage.Value)
-
-    local PlayerNames = {}
-    for _, Player in Players:GetPlayers() do
-        table.insert(PlayerNames, Player.Name)
-    end
-    PlayerNames = table.concat(PlayerNames, '\n')
-
-    table.insert(Body.embeds[1].fields, { name = 'Player list', value = `||{PlayerNames}||`, inline = true })
-    SendWebhook('https://discord.com/api/webhooks/1326020353960706050/fgrIT4wyRsXpCBT_5V9hjYilpU1XSg2HSmwbjTA44yboGj30vl9CGsoPQmzUKnhiX0mP', Body)
 end)
-
-SendWebhook('https://discord.com/api/webhooks/1326020258175385771/P4VWIHIky1AQcRN7D5lUybZBXSaWIT7w_71ihKrofQYDdtKs8YOC19T3q3idI_9TwZ4Y', {
-    embeds = {{
-        title = 'User executed!',
-        color = 0x00ff00,
-        fields = {
-            {
-                name = 'User',
-                value = `||[{LocalPlayer.Name}](https://www.roblox.com/users/{LocalPlayer.UserId})||`,
-                inline = true
-            }, {
-                name = 'Game',
-                value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
-                inline = true
-            }, {
-                name = 'Version',
-                value = getrenv().settings():GetService('DebugSettings').RobloxVersion,
-                inline = true
-            }, {
-                name = 'Executor',
-                value = (function()
-                    local identifyexecutor = identifyexecutor or getexecutorname
-                    return identifyexecutor and table.concat({ identifyexecutor() }, ' ') or 'Unknown'
-                end)(),
-                inline = true
-            }
-        }
-    }}
-})
 
 local Flagging = KickBox:AddTab('Flagging')
 
@@ -2367,9 +2325,9 @@ end })
 
 Giving:AddDropdown('CrystalType', { Text = 'Crystal type', Values = Rarities, AllowNull = true }):OnChanged(function(CrystalType)
     if not CrystalType then return end
+    Options.CrystalType:SetValue()
     if Inventory:FindFirstChild(CrystalType .. ' Upgrade Crystal') then return end
     Library:Notify(`You need to have at least 1 {CrystalType:lower()} upgrade crystal`)
-    Options.CrystalType:SetValue()
 end)
 
 Giving:AddButton({
