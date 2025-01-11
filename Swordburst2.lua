@@ -361,6 +361,11 @@ UserInputService.InputEnded:Connect(function(Key, GameProcessed)
     Controls[Key.KeyCode.Name] = 0
 end)
 
+local VerticalRatio, HorizontalRatio = 4, 1
+local DiagonalRatio = math.sqrt(VerticalRatio ^ 2 + HorizontalRatio ^ 2)
+VerticalRatio /= DiagonalRatio
+HorizontalRatio /= DiagonalRatio
+
 Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
     LerpToggle(Toggles.Autofarm)
     NoclipToggle(Toggles.Autofarm)
@@ -422,16 +427,33 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
         local TargetHRP = Target and Target.HumanoidRootPart or Toggles.UseWaypoint.Value and Waypoint
         if not TargetHRP then continue end
 
-        local TargetPosition = TargetHRP.CFrame.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
+        local TargetSize = TargetHRP.Size
+
+        local BoundingRadius = math.sqrt(TargetSize.X ^ 2 + TargetSize.Z ^ 2) / 2 + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 29 or 14)
+
+        local AutofarmVerticalOffset = Options.AutofarmVerticalOffset.Value
+        local AutofarmHorizontalOffset = Options.AutofarmHorizontalOffset.Value
+        if Options.AutofarmVerticalOffset.Value == Options.AutofarmVerticalOffset.Max then
+            if Options.AutofarmHorizontalOffset.Value == Options.AutofarmHorizontalOffset.Max then
+                AutofarmVerticalOffset = VerticalRatio * BoundingRadius
+                AutofarmHorizontalOffset = HorizontalRatio * BoundingRadius
+            else
+                AutofarmVerticalOffset = math.sqrt(BoundingRadius ^ 2 - AutofarmHorizontalOffset ^ 2)
+            end
+        elseif Options.AutofarmHorizontalOffset.Value == Options.AutofarmHorizontalOffset.Max then
+            AutofarmHorizontalOffset = math.sqrt(BoundingRadius ^ 2 - AutofarmVerticalOffset ^ 2)
+        end
+
+        local TargetPosition = TargetHRP.CFrame.Position + Vector3.new(0, AutofarmVerticalOffset, 0)
         -- if TargetHRP:FindFirstChild('BodyVelocity') then
         --     TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
         -- end
 
-        if Options.AutofarmHorizontalOffset.Value > 0 then
+        if AutofarmHorizontalOffset > 0 then
             local Difference = HumanoidRootPart.CFrame.Position - TargetHRP.CFrame.Position
             local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
             if HorizontalDifference.Magnitude ~= 0 then
-                TargetPosition += HorizontalDifference.Unit * Options.AutofarmHorizontalOffset.Value
+                TargetPosition += HorizontalDifference.Unit * AutofarmHorizontalOffset
             end
         end
 
@@ -443,8 +465,12 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
         end
 
         local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
-
-        if HorizontalDifference.Magnitude > Options.TeleportThreshold.Value then
+        if Options.TeleportThreshold.Value == 0 then
+            if HorizontalDifference.Magnitude > BoundingRadius + 15 then
+                TeleportToCFrame(HumanoidRootPart.CFrame.Rotation + TargetPosition)
+                continue
+            end
+        elseif HorizontalDifference.Magnitude > Options.TeleportThreshold.Value then
             TeleportToCFrame(HumanoidRootPart.CFrame.Rotation + TargetPosition)
             continue
         end
@@ -469,9 +495,9 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
 end)
 
 Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite = buggy)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
-Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold', Default = 60, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
-Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset', Default = 16, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
-Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset', Default = 0, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
+Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold (0 = auto)', Default = 0, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
+Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset (max = auto)', Default = 60, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
+Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset (max = auto)', Default = 40, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 0, Min = 0, Max = 20000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddToggle('UseWaypoint', { Text = 'Use waypoint' }):OnChanged(function(Value)
     Waypoint.CFrame = HumanoidRootPart.CFrame
@@ -1122,21 +1148,16 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
         for _, Target in Mobs:GetChildren() do
             if OnCooldown[Target] then continue end
             if not CheckTarget(Target) then continue end
-            local TargetHumanoidRootPart = Target:FindFirstChild('HumanoidRootPart')
+            local TargetHumanoidRootPart = Target.HumanoidRootPart
             if Options.KillauraRange.Value == 0 then
-                local TargetCFrame, TargetCFrameSize
-                if TargetHumanoidRootPart then
-                    TargetCFrame = TargetHumanoidRootPart.CFrame
-                    TargetCFrameSize = TargetHumanoidRootPart.Size
-                else
-                    TargetCFrame, TargetCFrameSize = Target:GetBoundingBox()
-                end
+                local TargetCFrame = TargetHumanoidRootPart.CFrame
+                local TargetSize = TargetHumanoidRootPart.Size
                 if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
-                    math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
-                    + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 30 or 15)
+                    math.sqrt(TargetSize.X ^ 2 + TargetSize.Z ^ 2) / 2
+                    + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 31 or 16)
                 then
                     continue
-                elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
+                elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetSize.Y / 2 - 3 then
                     continue
                 end
             elseif (TargetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
@@ -1155,21 +1176,16 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
             if Options.IgnorePlayers.Value[Target.Name] then continue end
             if OnCooldown[TargetCharacter] then continue end
             if not CheckTarget(TargetCharacter) then continue end
-            local TargetHumanoidRootPart = TargetCharacter:FindFirstChild('HumanoidRootPart')
+            local TargetHumanoidRootPart = TargetCharacter.HumanoidRootPart
             if Options.KillauraRange.Value == 0 then
-                local TargetCFrame, TargetCFrameSize
-                if TargetHumanoidRootPart then
-                    TargetCFrame = TargetHumanoidRootPart.CFrame
-                    TargetCFrameSize = TargetHumanoidRootPart.Size
-                else
-                    TargetCFrame, TargetCFrameSize = TargetCharacter:GetBoundingBox()
-                end
+                local TargetCFrame = TargetHumanoidRootPart.CFrame
+                local TargetSize = TargetHumanoidRootPart.Size
                 if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
-                    math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
-                    + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 30 or 15)
+                    math.sqrt(TargetSize.X ^ 2 + TargetSize.Z ^ 2) / 2
+                    + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 31 or 16)
                 then
                     continue
-                elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
+                elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetSize.Y / 2 - 3 then
                     continue
                 end
             elseif (TargetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
