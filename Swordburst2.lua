@@ -186,12 +186,16 @@ local TeleportToCFrame = (function(cframe)
     HumanoidRootPart.CFrame = cframe
 end)
 
+local Respawn = function()
+    Event:FireServer('Profile', { 'Respawn' })
+end
+
 local HumanoidConnection = function()
     Humanoid.Died:Connect(function()
         LastDeathCFrame = HumanoidRootPart.CFrame
 
         if Toggles.FastRespawns.Value then
-            Event:FireServer('Profile', { 'Respawn' })
+            Respawn()
         end
 
         if not Toggles.DisableOnDeath.Value then return end
@@ -230,7 +234,7 @@ local HumanoidConnection = function()
 
     Entity:WaitForChild('Stamina').Changed:Connect(function(Value)
         if Toggles.ResetOnLowStamina.Value and not KillauraSkill.Active and Value < KillauraSkill.Cost then
-            Event:FireServer('Profile', { 'Respawn' })
+            Respawn()
         end
     end)
 
@@ -263,7 +267,10 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     Character = NewCharacter
     Humanoid = Character:WaitForChild('Humanoid')
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
-    Entity = Character:WaitForChild('Entity')
+    Entity = Character:WaitForChild('Entity', 1)
+    if not Entity then
+        return Respawn()
+    end
     Stamina = Entity:WaitForChild('Stamina')
     HumanoidConnection()
 end)
@@ -1106,7 +1113,7 @@ local UseSkill = function(Skill)
         Skill.LastHit = false
         Skill.Active = false
         if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
-            Event:FireServer('Profile', { 'Respawn' })
+            Respawn()
         end
         if Skill.Name == 'Summon Pistol' then
             task.wait(1)
@@ -1749,9 +1756,7 @@ Inventory.ChildAdded:Connect(EquipBestArmorAndWeapon)
 Level.Changed:Connect(EquipBestArmorAndWeapon)
 
 local resetBindable = Instance.new('BindableEvent')
-resetBindable.Event:Connect(function()
-    Event:FireServer('Profile', { 'Respawn' })
-end)
+resetBindable.Event:Connect(Respawn)
 Misc2:AddToggle('FastRespawns', { Text = 'Fast respawns' }):OnChanged(function(Value)
     StarterGui:SetCore('ResetButtonCallback', not Value or resetBindable)
 end)
