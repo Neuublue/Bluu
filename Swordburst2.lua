@@ -267,7 +267,7 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     Character = NewCharacter
     Humanoid = Character:WaitForChild('Humanoid')
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
-    Entity = Character:WaitForChild('Entity', 1)
+    Entity = Character:WaitForChild('Entity', 2)
     if not Entity then
         return Respawn()
     end
