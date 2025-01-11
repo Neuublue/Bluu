@@ -84,12 +84,6 @@ local InvokeFunction = function(...)
     return result
 end
 
-local GetPing = function()
-    local StartTime = tick()
-    Function:InvokeServer('Administrator', {})
-    return tick() - StartTime
-end
-
 local PlayerUI = LocalPlayer:WaitForChild('PlayerGui'):WaitForChild('CardinalUI'):WaitForChild('PlayerUI')
 local Level = PlayerUI:WaitForChild('HUD'):WaitForChild('LevelBar'):WaitForChild('Level')
 local Chat = PlayerUI:WaitForChild('Chat')
@@ -101,6 +95,7 @@ local Stepped = game:GetService('RunService').Stepped
 
 local UserInputService = game:GetService('UserInputService')
 local MarketplaceService = game:GetService('MarketplaceService')
+local StarterGui = game:GetService('StarterGui')
 
 LocalPlayer.Idled:Connect(function()
     game:GetService('VirtualUser'):ClickButton2(Vector2.new())
@@ -162,9 +157,42 @@ local SetWalkingAnimation = function(Value, Force)
     AnimateConstantsModified = Value
 end
 
+local AwaitEventTimeout = function(event, callback, timeout)
+    local signal = Instance.new('BoolValue')
+    local connection; connection = event:Connect(function(...)
+        if callback and not callback(...) then return end
+        signal.Value = true
+    end)
+    if timeout then
+        task.delay(timeout, function()
+            signal.Value = true
+        end)
+    else
+        task.spawn(function()
+            Function:InvokeServer('Test')
+            signal.Value = true
+        end)
+    end
+    signal:GetPropertyChangedSignal('Value'):Wait()
+    connection:Disconnect()
+    signal:Destroy()
+end
+
+local TeleportToCFrame = (function(cframe)
+    Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
+        return tag == 'Teleporting'
+    end)
+    HumanoidRootPart.CFrame = cframe
+end)
+
 local HumanoidConnection = function()
     Humanoid.Died:Connect(function()
         LastDeathCFrame = HumanoidRootPart.CFrame
+
+        if Toggles.FastRespawns.Value then
+            Event:FireServer('Profile', { 'Respawn' })
+        end
 
         if not Toggles.DisableOnDeath.Value then return end
 
@@ -206,12 +234,6 @@ local HumanoidConnection = function()
         end
     end)
 
-    if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
-        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        GetPing()
-        HumanoidRootPart.CFrame = LastDeathCFrame
-    end
-
     Animate = (function()
         if not getconnections then return end
         for _, Connection in getconnections(Stepped) do
@@ -223,11 +245,25 @@ local HumanoidConnection = function()
     end)()
 
     SetWalkingAnimation(AnimateConstantsModified, true)
+
+    if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
+        AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
+            return tag == 'PlayerNametag'
+        end)
+        TeleportToCFrame(LastDeathCFrame)
+        AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
+            return tag == 'Teleporting'
+        end)
+        TeleportToCFrame(LastDeathCFrame)
+    end
 end
 
 HumanoidConnection()
 
 LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+    if Toggles.FastRespawns.Value then
+        LastDeathCFrame = HumanoidRootPart.CFrame
+    end
     Character = NewCharacter
     Humanoid = Character:WaitForChild('Humanoid')
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
@@ -413,10 +449,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
         local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
 
         if HorizontalDifference.Magnitude > Options.TeleportThreshold.Value then
-            local TargetCFrame = HumanoidRootPart.CFrame.Rotation + TargetPosition
-            Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-            GetPing()
-            HumanoidRootPart.CFrame = TargetCFrame
+            TeleportToCFrame(HumanoidRootPart.CFrame.Rotation + TargetPosition)
             continue
         end
 
@@ -1001,7 +1034,7 @@ if RequiredServices then
     AttackKey = debug.getconstant(RequiredServices.Combat.DealDamage, 5)
 end
 
-RPCKey = RPCKey or InvokeFunction('RPCKey', {})
+RPCKey = RPCKey or Function:InvokeServer('RPCKey', {})
 AttackKey = AttackKey or '2'
 
 local OnCooldown = {}
@@ -1026,7 +1059,13 @@ local UseSkill = function(Skill)
             InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = Skill.Sword.Value }, 'Right' })
             Event:FireServer('Skills', { 'UseSkill', Skill.Name })
             if RightSwordOld then
-                GetPing()
+                local OldStamina = Stamina.Value
+                AwaitEventTimeout(Stamina.Changed, function(Value)
+                    if OldStamina - Value == Skill.Cost then
+                        return true
+                    end
+                    OldStamina = Value
+                end)
                 InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = RightSwordOld.Value }, 'Right' })
                 if LeftSwordOld then
                     InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = LeftSwordOld.Value }, 'Left' })
@@ -1098,7 +1137,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
                 end
                 if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
                     math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
-                    + (KillauraSkill.Active and 30 or 15)
+                    + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 30 or 15)
                 then
                     continue
                 elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
@@ -1131,7 +1170,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
                 end
                 if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
                     math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
-                    + (KillauraSkill.Active and 30 or 15)
+                    + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 30 or 15)
                 then
                     continue
                 elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
@@ -1180,7 +1219,6 @@ if GetLevel() >= 21 then
     -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
     table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
     Options.SkillToUse:SetValues()
-    Options.SkillToUse:SetValue('Leaping Slash (x3.3)')
 else
     local LevelConnection
     LevelConnection = Level.Changed:Connect(function()
@@ -1190,7 +1228,6 @@ else
         table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
 
         Options.SkillToUse:SetValues()
-        Options.SkillToUse:SetValue('Leaping Slash (x3.3)')
         LevelConnection:Disconnect()
     end)
 end
@@ -1198,7 +1235,6 @@ end
 if GetLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
     table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
     Options.SkillToUse:SetValues()
-    Options.SkillToUse:SetValue('Summon Pistol (x4.35) (35k base)')
 else
     local SkillConnection
     SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
@@ -1208,7 +1244,6 @@ else
         table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
 
         Options.SkillToUse:SetValues()
-        Options.SkillToUse:SetValue('Summon Pistol (x4.35) (35k base)')
         SkillConnection:Disconnect()
     end)
 end
@@ -1277,10 +1312,10 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click Teleport' }):OnChang
         if not Toggles.ClickTeleport.Value then return end
         if Teleporting then return end
         Teleporting = true
-        local TargetCFrame = HumanoidRootPart.CFrame.Rotation + Mouse.Hit.Position
-        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-        GetPing()
-        HumanoidRootPart.CFrame = TargetCFrame
+        TeleportToCFrame(HumanoidRootPart.CFrame.Rotation + Mouse.Hit.Position)
+        AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
+            return tag == 'Teleporting'
+        end)
         Teleporting = false
     end
     return function(Value)
@@ -1519,9 +1554,10 @@ for _, AnimPack in game:GetService('StarterPlayer').StarterCharacterScripts.Anim
     table.insert(AnimPackNames, AnimPack.Name)
 end
 
-local GetCurrentSwordClass = function()
+local GetCurrentAnimSetting = function()
     if LeftSword then return 'DualWield' end
-    return ItemDatabase[RightSword.Name].Class.Value
+    local SwordClass = ItemDatabase[RightSword.Name].Class.Value
+    return SwordClass == '1HSword' and 'SingleSword' or SwordClass
 end
 
 Misc1:AddDropdown('ChangeAnimationPack', {
@@ -1531,16 +1567,16 @@ Misc1:AddDropdown('ChangeAnimationPack', {
 }):OnChanged(function(AnimPackName)
     if not AnimPackName then return end
     Options.ChangeAnimationPack:SetValue()
-    InvokeFunction('CashShop', {
+    Function:InvokeServer('CashShop', {
         'SetAnimPack', {
             Name = AnimPackName,
-            Value = GetCurrentSwordClass(),
+            Value = GetCurrentAnimSetting(),
             Parent = Profile.AnimPacks
         }
     })
 end)
 
-local AnimPackSwordClasses = {
+local AnimPackAnimSettings = {
     Berserker = '2HSword',
     Ninja = 'Katana',
     Noble = 'SingleSword',
@@ -1550,7 +1586,7 @@ local AnimPackSwordClasses = {
 }
 
 local UnownedAnimPacks = {}
-for AnimPackName, SwordClass in AnimPackSwordClasses do
+for AnimPackName, SwordClass in AnimPackAnimSettings do
     if Profile.AnimPacks:FindFirstChild(AnimPackName) then continue end
     local AnimPack = Instance.new('StringValue')
     AnimPack.Name = AnimPackName
@@ -1573,7 +1609,7 @@ PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(Entr
             end
         end)()
         if not UnownedAnimPacks[AnimPackName] then return end
-        local SwordClass = AnimPackSwordClasses[AnimPackName]
+        local SwordClass = AnimPackAnimSettings[AnimPackName]
         -- local AnimSetting = Profile.AnimSettings[SwordClass]
         -- AnimSetting.Value = AnimSetting.Value == AnimPackName and '' or AnimPackName
         Function:InvokeServer('CashShop', {
@@ -1700,6 +1736,14 @@ Misc2:AddToggle('EquipBestArmorAndWeapon', { Text = 'Equip best armor and weapon
 Inventory.ChildAdded:Connect(EquipBestArmorAndWeapon)
 Level.Changed:Connect(EquipBestArmorAndWeapon)
 
+local resetBindable = Instance.new('BindableEvent')
+resetBindable.Event:Connect(function()
+    Event:FireServer('Profile', { 'Respawn' })
+end)
+Misc2:AddToggle('FastRespawns', { Text = 'Fast respawns' }):OnChanged(function(Value)
+    StarterGui:SetCore('ResetButtonCallback', not Value or resetBindable)
+end)
+
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
 Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
 
@@ -1801,9 +1845,7 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
 
         local HorizontalDifference = Vector3.new(Difference.X, 0, Difference.Z)
         if HorizontalDifference.Magnitude > 70 then
-            Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-            GetPing()
-            HumanoidRootPart.CFrame = TargetCFrame
+            TeleportToCFrame(TargetCFrame)
             continue
         end
 
@@ -2088,41 +2130,34 @@ for _, Player in Players:GetPlayers() do
     task.spawn(ModCheck, Player)
 end
 
-Players.PlayerAdded:Connect(function(Player)
-    ModCheck(Player)
-end)
+Players.PlayerAdded:Connect(ModCheck)
 
 Players.PlayerRemoving:Connect(function(Player)
     ModCheck(Player, true)
 end)
 
-local ModsIngame
-local ModCounter = Instance.new('IntValue')
-
-ModCounter.Changed:Connect(function(Value)
-    if Value == #Mods then
-        if #ModsIngame > 0 then
-            Library:Notify('The mods that are currently in-game are: \n' .. table.concat(ModsIngame, ', \n'), 10)
-        else
-            Library:Notify('There are no mods in game')
-        end
-        ModCounter.Value = 0
-        ModsIngame = nil
-    end
-end)
-
+local CheckingModsIngame
 ModDetector:AddButton({ Text = `Mods in game (don't use at spawn)`, Func = function()
-    if not ModsIngame then
-        ModsIngame = {}
-        Library:Notify('Checking profiles...')
-        for _, UserId in Mods do
-            task.spawn(function()
-                if (InvokeFunction('Teleport', { 'FriendTeleport', UserId }) or ''):find('!$') then
-                    table.insert(ModsIngame, Players:GetNameFromUserIdAsync(UserId))
-                end
-                ModCounter.Value += 1
-            end)
-        end
+    if CheckingModsIngame then return end
+    CheckingModsIngame = {}
+    Library:Notify('Checking profiles...')
+    local counter = 0
+    for _, UserId in Mods do
+        task.spawn(function()
+            local response = InvokeFunction('Teleport', { 'FriendTeleport', UserId })
+            if not response then return end
+            if response:find('!$') and response ~= 'Data error, try again!' then
+                table.insert(CheckingModsIngame, Players:GetNameFromUserIdAsync(UserId))
+            end
+            counter += 1
+            if counter ~= #Mods then return end
+            if #CheckingModsIngame > 0 then
+                Library:Notify('The mods that are currently in-game are: \n' .. table.concat(CheckingModsIngame, ', \n'), 10)
+            else
+                Library:Notify('There are no mods in game')
+            end
+            CheckingModsIngame = nil
+        end)
     end
 end })
 
