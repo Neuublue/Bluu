@@ -202,7 +202,7 @@ local HumanoidConnection = function()
 
     Entity:WaitForChild('Stamina').Changed:Connect(function(Value)
         if Toggles.ResetOnLowStamina.Value and not KillauraSkill.Active and Value < KillauraSkill.Cost then
-            Humanoid.Health = 0
+            Event:FireServer('Profile', { 'Respawn' })
         end
     end)
 
@@ -953,8 +953,8 @@ local GetKillauraThreads = function(Entity)
         return 1
     end
 
-	if not Toggles.AutomaticThreads.Value then
-        return Options.KillauraThreads.Value
+	if Options.KillauraThreads.Value ~= 0 then
+        return 1
     end
 
     if KillauraSkill.LastHit then
@@ -1045,7 +1045,7 @@ local UseSkill = function(Skill)
         Skill.LastHit = false
         Skill.Active = false
         if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
-            Humanoid.Health = 0
+            Event:FireServer('Profile', { 'Respawn' })
         end
         if Skill.Name == 'Summon Pistol' then
             task.wait(1)
@@ -1087,23 +1087,27 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
         for _, Target in Mobs:GetChildren() do
             if OnCooldown[Target] then continue end
             if not CheckTarget(Target) then continue end
-            local TargetCFrame = nil;
-            local TargetCFrameSize = nil;
             local TargetHumanoidRootPart = Target:FindFirstChild('HumanoidRootPart')
-            if TargetHumanoidRootPart then
-                TargetCFrame = TargetHumanoidRootPart.CFrame
-                TargetCFrameSize = TargetHumanoidRootPart.Size
-            else
-                TargetCFrame, TargetCFrameSize = Target:GetBoundingBox()
-            end
-            if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
-                math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
-                + (KillauraSkill.Active and 30 or 15)
-            then
+            if Options.KillauraRange.Value == 0 then
+                local TargetCFrame, TargetCFrameSize
+                if TargetHumanoidRootPart then
+                    TargetCFrame = TargetHumanoidRootPart.CFrame
+                    TargetCFrameSize = TargetHumanoidRootPart.Size
+                else
+                    TargetCFrame, TargetCFrameSize = Target:GetBoundingBox()
+                end
+                if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
+                    math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
+                    + (KillauraSkill.Active and 30 or 15)
+                then
+                    continue
+                elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
+                    continue
+                end
+            elseif (TargetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
                 continue
-            elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
-                continue
             end
+
             Attack(Target)
         end
 
@@ -1116,21 +1120,24 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
             if Options.IgnorePlayers.Value[Target.Name] then continue end
             if OnCooldown[TargetCharacter] then continue end
             if not CheckTarget(TargetCharacter) then continue end
-            local TargetCFrame = nil;
-            local TargetCFrameSize = nil;
             local TargetHumanoidRootPart = TargetCharacter:FindFirstChild('HumanoidRootPart')
-            if TargetHumanoidRootPart then
-                TargetCFrame = TargetHumanoidRootPart.CFrame
-                TargetCFrameSize = TargetHumanoidRootPart.Size
-            else
-                TargetCFrame, TargetCFrameSize = TargetCharacter:GetBoundingBox()
-            end
-            if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
-                math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
-                + (KillauraSkill.Active and 30 or 15)
-            then
-                continue
-            elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
+            if Options.KillauraRange.Value == 0 then
+                local TargetCFrame, TargetCFrameSize
+                if TargetHumanoidRootPart then
+                    TargetCFrame = TargetHumanoidRootPart.CFrame
+                    TargetCFrameSize = TargetHumanoidRootPart.Size
+                else
+                    TargetCFrame, TargetCFrameSize = TargetCharacter:GetBoundingBox()
+                end
+                if (HumanoidRootPart.Position - TargetCFrame.Position).Magnitude >
+                    math.sqrt(TargetCFrameSize.X ^ 2 + TargetCFrameSize.Z ^ 2) / 2
+                    + (KillauraSkill.Active and 30 or 15)
+                then
+                    continue
+                elseif HumanoidRootPart.Position.Y < TargetCFrame.Y - TargetCFrameSize.Y / 2 - 3 then
+                    continue
+                end
+            elseif (TargetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
                 continue
             end
             Attack(TargetCharacter)
@@ -1139,10 +1146,8 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
 end)
 
 Killaura:AddSlider('KillauraDelay', { Text = 'Delay (breaks damage under 0.3)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
-Killaura:AddToggle('AutomaticThreads', { Text = 'Automatic threads', Default = true })
-local Depbox = Killaura:AddDependencyBox()
-Depbox:AddSlider('KillauraThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
-Depbox:SetupDependencies({ { Toggles.AutomaticThreads, false } })
+Killaura:AddSlider('KillauraThreads', { Text = 'Threads (0 = auto)', Default = 0, Min = 0, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
+Killaura:AddSlider('KillauraRange', { Text = 'Range (0 = auto)', Default = 0, Min = 0, Max = 200, Rounding = 0, Suffix = 'm' })
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
 Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
 
@@ -2167,31 +2172,6 @@ game:GetService('GuiService').ErrorMessageChanged:Connect(function(Message)
     }
 
     SendWebhook(Options.KickWebhook.Value, Body, Toggles.PingInMessage.Value)
-end)
-
-local Flagging = KickBox:AddTab('Flagging')
-
-local FlaggedPlayers = {}
-
-Flagging:AddToggle('Autoflag', { Text = 'Autoflag' }):OnChanged(function(Value)
-    if not Value then return end
-    for _, Player in Players:GetPlayers() do
-        if Player == LocalPlayer then continue end
-        if Options.AutoflagIgnorePlayers.Value[Player.Name] then continue end
-        if FlaggedPlayers[Player.Name] then return end
-        FlaggedPlayers[Player.Name] = true
-        Event:FireServer('Moderator', 'Report', Player)
-    end
-end)
-
-Flagging:AddDropdown('AutoflagIgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
-
-Players.PlayerAdded:Connect(function(Player)
-    if not Toggles.Autoflag.Value then return end
-    if Options.AutoflagIgnorePlayers.Value[Player.Name] then return end
-    if FlaggedPlayers[Player.Name] then return end
-    FlaggedPlayers[Player.Name] = true
-    Event:FireServer('Moderator', 'Report', Player)
 end)
 
 local SwingCheats = Misc:AddRightGroupbox('Swing cheats (can break damage)')
