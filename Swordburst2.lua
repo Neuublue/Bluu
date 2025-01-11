@@ -954,7 +954,7 @@ local GetKillauraThreads = function(Entity)
     end
 
 	if Options.KillauraThreads.Value ~= 0 then
-        return 1
+        return Options.KillauraThreads.Value
     end
 
     if KillauraSkill.LastHit then
@@ -962,7 +962,7 @@ local GetKillauraThreads = function(Entity)
     end
 
     if Entity:FindFirstChild('HitLives') and Entity.HitLives.Value <= 3 then
-        return 3
+        return Entity.HitLives.Value
     end
 
     local Damage = SwordDamage
