@@ -247,10 +247,6 @@ local HumanoidConnection = function()
     SetWalkingAnimation(AnimateConstantsModified, true)
 
     if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
-        AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
-            return tag == 'PlayerNametag'
-        end)
-        TeleportToCFrame(LastDeathCFrame)
         AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
             return tag == 'Teleporting'
         end)
@@ -1304,7 +1300,7 @@ AdditionalCheats:AddToggle('Noclip', { Text = 'Noclip' }):OnChanged(function()
     NoclipToggle(Toggles.Noclip)
 end)
 
-AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click Teleport' }):OnChanged((function()
+AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChanged((function()
     local Mouse = LocalPlayer:GetMouse()
     local Button1DownConnection
     local Teleporting = false
