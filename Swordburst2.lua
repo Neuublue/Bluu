@@ -159,7 +159,8 @@ end
 
 local AwaitEventTimeout = function(event, callback, timeout)
     local signal = Instance.new('BoolValue')
-    local connection; connection = event:Connect(function(...)
+    local connection
+    connection = event:Connect(function(...)
         if callback and not callback(...) then return end
         signal.Value = true
     end)
@@ -854,9 +855,9 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
             if Target then
                 local TargetHRP = Target.HumanoidRootPart
                 local TargetPosition = TargetHRP.CFrame.Position
-                -- if TargetHRP:FindFirstChild('BodyVelocity') then
-                --     TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
-                -- end
+                if TargetHRP:FindFirstChild('BodyVelocity') then
+                    TargetPosition += TargetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
+                end
 
                 if Options.AutowalkHorizontalOffset.Value > 0 then
                     local Difference = HumanoidRootPart.CFrame.Position - TargetHRP.CFrame.Position
@@ -1031,13 +1032,15 @@ local GetKillauraThreads = function(Entity)
 
     if KillauraSkill.Name and KillauraSkill.Active then
         local SkillMultipliers = {
-            -- ['Sweeping Strike'] = 3,
+            ['Sweeping Strike'] = 3,
             ['Leaping Slash'] = 3.3,
-            ['Summon Pistol'] = 4.35
+            ['Summon Pistol'] = 4.35,
+            ['Meteor Shot'] = 3.1
         }
-        Damage = math.ceil(SwordDamage * SkillMultipliers[KillauraSkill.Name])
+        Damage = SwordDamage * SkillMultipliers[KillauraSkill.Name]
         local BaseDamages = {
-            ['Summon Pistol'] = 35000
+            ['Summon Pistol'] = 35000,
+            ['Meteor Shot'] = 55000
         }
         Damage = math.max(Damage, BaseDamages[KillauraSkill.Name] or 0)
     end
@@ -1068,29 +1071,29 @@ AttackKey = AttackKey or '2'
 
 local OnCooldown = {}
 
-local UseSkill = function(Skill)
+local UseSkill = function(skill)
     if not (Humanoid.Health > 0) then return end
-    if not Skill.Name then return end
-    if Skill.OnCooldown then return end
-    if Skill.Cost > Stamina.Value then return end
+    if not skill.Name then return end
+    if skill.OnCooldown then return end
+    if skill.Cost > Stamina.Value then return end
 
-    Skill.OnCooldown = true
-    Skill.Active = true
+    skill.OnCooldown = true
+    skill.Active = true
 
-    if Skill.Name == 'Summon Pistol' then
-        Event:FireServer('Skills', { 'UseSkill', Skill.Name })
-    elseif Skill.GetSword() then
-        if Skill.Sword == RightSword and not LeftSword then
-            Event:FireServer('Skills', { 'UseSkill', Skill.Name })
+    if not skill.Class then
+        Event:FireServer('Skills', { 'UseSkill', skill.Name })
+    elseif skill.GetSword() then
+        if skill.Sword == RightSword and not LeftSword then
+            Event:FireServer('Skills', { 'UseSkill', skill.Name })
         else
             local RightSwordOld = RightSword
             local LeftSwordOld = LeftSword
-            InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = Skill.Sword.Value }, 'Right' })
-            Event:FireServer('Skills', { 'UseSkill', Skill.Name })
+            InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = skill.Sword.Value }, 'Right' })
+            Event:FireServer('Skills', { 'UseSkill', skill.Name })
             if RightSwordOld then
                 local OldStamina = Stamina.Value
                 AwaitEventTimeout(Stamina.Changed, function(Value)
-                    if OldStamina - Value == Skill.Cost then
+                    if OldStamina - Value == skill.Cost then
                         return true
                     end
                     OldStamina = Value
@@ -1102,47 +1105,49 @@ local UseSkill = function(Skill)
             end
         end
     else
-        Library:Notify(`Get a {Skill.Class:lower()} first`)
+        Library:Notify(`Get a {skill.Class:lower()} first`)
         Options.SkillToUse:SetValue()
     end
 
     task.spawn(function()
         task.wait(2.5)
-        Skill.LastHit = true
+        skill.LastHit = true
         task.wait(0.5)
-        Skill.LastHit = false
-        Skill.Active = false
+        skill.LastHit = false
+        skill.Active = false
         if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
             Respawn()
         end
-        if Skill.Name == 'Summon Pistol' then
+        if skill.Name == 'Summon Pistol' then
             task.wait(1)
+        elseif skill.Name == 'Meteor Shot' then
+            task.wait(12)
         end
-        Skill.OnCooldown = false
+        skill.OnCooldown = false
     end)
 end
 
-local Attack = function(Target)
-    if not CheckTarget(Target) then return end
+local Attack = function(target)
+    if not CheckTarget(target) then return end
 
-    if Toggles.UseSkillPreemptively.Value or Target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
+    if Toggles.UseSkillPreemptively.Value or target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
         UseSkill(KillauraSkill)
     end
 
-    if not CheckTarget(Target) then return end
+    if not CheckTarget(target) then return end
 
-	local Threads = GetKillauraThreads(Target.Entity)
+	local Threads = GetKillauraThreads(target.Entity)
 
     local AttackName = KillauraSkill.Active and KillauraSkill.Name or nil
 
     for _ = 1, Threads do
-        Event:FireServer('Combat', RPCKey, { 'Attack', Target, AttackName, AttackKey })
+        Event:FireServer('Combat', RPCKey, { 'Attack', target, AttackName, AttackKey })
     end
 
-    OnCooldown[Target] = true
+    OnCooldown[target] = true
     task.spawn(function()
         task.wait(Threads * Options.KillauraDelay.Value)
-        OnCooldown[Target] = nil
+        OnCooldown[target] = nil
     end)
 end
 
@@ -1224,7 +1229,7 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
         Class = Class == 'SingleSword' and '1HSword' or Class
 
         if not KillauraSkill.GetSword(Class) then
-            Library:Notify(`Get an equippable {Class} first`)
+            Library:Notify(`Get a {Class} first`)
             return Options.SkillToUse:SetValue()
         end
     end
@@ -1242,10 +1247,8 @@ else
     local LevelConnection
     LevelConnection = Level.Changed:Connect(function()
         if GetLevel() < 21 then return end
-
         -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
         table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
-
         Options.SkillToUse:SetValues()
         LevelConnection:Disconnect()
     end)
@@ -1259,13 +1262,25 @@ else
     SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
         if GetLevel() < 60 then return end
         if Skill.Name ~= 'Summon Pistol' then return end
-
         table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
-
         Options.SkillToUse:SetValues()
         SkillConnection:Disconnect()
     end)
 end
+
+-- if GetLevel() >= 200 and Profile.Skills:FindFirstChild('Meteor Shot') then
+--     table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
+--     Options.SkillToUse:SetValues()
+-- else
+--     local SkillConnection
+--     SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
+--         if GetLevel() < 200 then return end
+--         if Skill.Name ~= 'Meteor Shot' then return end
+--         table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
+--         Options.SkillToUse:SetValues()
+--         SkillConnection:Disconnect()
+--     end)
+-- end
 
 Killaura:AddToggle('UseSkillPreemptively', { Text = 'Use skill preemptively' })
 
