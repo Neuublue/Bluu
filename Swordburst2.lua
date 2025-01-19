@@ -815,10 +815,10 @@ Autofarm:AddToggle('DisableOnDeath', { Text = 'Disable on death' })
 
 Animate = (function()
     if not getconnections then return end
-    for _, Connection in next, getconnections(Stepped) do
-        local Function = Connection.Function
-        if Function and debug.info(Function, 's'):find('Animate') then
-            return Function
+    for _, connection in next, getconnections(Stepped) do
+        local func = connection.Function
+        if func and debug.info(func, 's'):find('Animate') then
+            return func
         end
     end
 end)()
@@ -1810,8 +1810,8 @@ local TargetPlayer
 local bypassedViewingProfile = pcall(function()
     local signal = LocalPlayer:GetAttributeChangedSignal('ViewingProfile')
     local connection = getconnections(signal)[1]
-    assert(type(connection.Function) == 'function', 'shitsploit')
     connection:Disable()
+    assert(not connection.Enabled)
 end)
 
 PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, SpecialType = 'Player' }):OnChanged(function(PlayerName)
