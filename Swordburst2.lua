@@ -103,7 +103,7 @@ end)
 
 local RequiredServices = (function()
     if not getreg then return end
-    for _, Table in getreg() do
+    for _, Table in next, getreg() do
         if type(Table) == 'table' and rawget(Table, 'Services') then
             return Table.Services
         end
@@ -142,8 +142,6 @@ LinearVelocity.MaxForce = math.huge
 
 local WaypointIndex = 1
 
-local LastDeathCFrame
-
 local KillauraSkill
 
 local Animate
@@ -180,16 +178,33 @@ local AwaitEventTimeout = function(event, callback, timeout)
 end
 
 local TeleportToCFrame = (function(cframe)
-    Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-    AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
-        return tag == 'Teleporting'
-    end)
+    -- Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    -- AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
+    --     return tag == 'Teleporting'
+    -- end)
+    -- HumanoidRootPart.CFrame = cframe
+
+    local targetCFrame = cframe + Vector3.new(0, 1e6 - cframe.Position.Y, 0)
+    local stepped = RunService.Stepped
+    local startTime = tick()
+    while tick() - startTime < 0.5 do
+        HumanoidRootPart.AssemblyLinearVelocity = Vector3.new()
+        HumanoidRootPart.CFrame = targetCFrame
+        stepped:Wait()
+    end
     HumanoidRootPart.CFrame = cframe
+    while HumanoidRootPart.CFrame.Position.Y > 1e5 do
+        HumanoidRootPart.AssemblyLinearVelocity = Vector3.new()
+        HumanoidRootPart.CFrame = cframe
+        stepped:Wait()
+    end
 end)
 
 local Respawn = function()
     Event:FireServer('Profile', { 'Respawn' })
 end
+
+local LastDeathCFrame
 
 local HumanoidConnection = function()
     Humanoid.Died:Connect(function()
@@ -241,30 +256,21 @@ local HumanoidConnection = function()
 
     Animate = (function()
         if not getconnections then return end
-        for _, Connection in getconnections(Stepped) do
-            local Function = Connection.Function
-            if Function and debug.info(Function, 's'):find('Animate') then
-                return Function
+        for _, connection in next, getconnections(Stepped) do
+            local func = connection.Function
+            if func and debug.info(func, 's'):find('Animate') then
+                return func
             end
         end
     end)()
 
     SetWalkingAnimation(AnimateConstantsModified, true)
-
-    if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
-        AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
-            return tag == 'Teleporting'
-        end)
-        TeleportToCFrame(LastDeathCFrame)
-    end
 end
 
 HumanoidConnection()
 
 LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
-    if Toggles.FastRespawns.Value then
-        LastDeathCFrame = HumanoidRootPart.CFrame
-    end
+    LastDeathCFrame = LastDeathCFrame or HumanoidRootPart.CFrame
     Character = NewCharacter
     Humanoid = Character:WaitForChild('Humanoid')
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
@@ -274,6 +280,15 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     end
     Stamina = Entity:WaitForChild('Stamina')
     HumanoidConnection()
+    if LastDeathCFrame and Toggles.ReturnOnDeath.Value then
+        if Profile:FindFirstChild('Checkpoint') then
+            AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
+                return tag == 'Teleporting'
+            end, 0.5)
+        end
+        TeleportToCFrame(LastDeathCFrame)
+    end
+    LastDeathCFrame = nil
 end)
 
 local CheckTarget = function(Target)
@@ -298,7 +313,7 @@ local LerpToggle = (function()
             return
         end
 
-        for _, Toggle in LerpToggles do
+        for _, Toggle in next, LerpToggles do
             if Toggle == ChangedToggle then continue end
             if not Toggle.Value then continue end
             Toggle:SetValue(false)
@@ -318,11 +333,11 @@ local NoclipToggle = (function()
             NoclipToggles[ChangedToggle] = NoclipToggles[ChangedToggle] or ChangedToggle
         end
 
-        for _, Toggle in NoclipToggles do
+        for _, Toggle in next, NoclipToggles do
             if not Toggle.Value then continue end
             if NoclipConnection then return end
             NoclipConnection = Stepped:Connect(function()
-                for _, Child in Character:GetChildren() do
+                for _, Child in next, Character:GetChildren() do
                     if not Child:IsA('BasePart') then continue end
                     Child.CanCollide = false
                 end
@@ -399,7 +414,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function(Value)
             local AutofarmRadius = Options.AutofarmRadius.Value == 0 and math.huge or Options.AutofarmRadius.Value
             local Distance = AutofarmRadius
             local PrioritizedDistance = Distance
-            for _, Mob in Mobs:GetChildren() do
+            for _, Mob in next, Mobs:GetChildren() do
                 if Options.IgnoreMobs.Value[Mob.Name] then continue end
                 if not CheckTarget(Mob) then continue end
                 if Toggles.UseWaypoint.Value and (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude > AutofarmRadius then continue end
@@ -517,7 +532,7 @@ local MobList = {}
 if RequiredServices then
     local MobDataCache = RequiredServices.StatsUI.MobDataCache
 
-    for MobName, _ in MobDataCache do
+    for MobName, _ in next, MobDataCache do
         table.insert(MobList, MobName)
     end
 
@@ -800,7 +815,7 @@ Autofarm:AddToggle('DisableOnDeath', { Text = 'Disable on death' })
 
 Animate = (function()
     if not getconnections then return end
-    for _, Connection in getconnections(Stepped) do
+    for _, Connection in next, getconnections(Stepped) do
         local Function = Connection.Function
         if Function and debug.info(Function, 's'):find('Animate') then
             return Function
@@ -830,7 +845,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
             local AutofarmRadius = Options.AutofarmRadius.Value == 0 and math.huge or Options.AutofarmRadius.Value
             local Distance = AutofarmRadius
             local PrioritizedDistance = Distance
-            for _, Mob in Mobs:GetChildren() do
+            for _, Mob in next, Mobs:GetChildren() do
                 if Options.IgnoreMobs.Value[Mob.Name] then continue end
                 if not CheckTarget(Mob) then continue end
                 if Toggles.UseWaypoint.Value and (Mob.HumanoidRootPart.Position - Waypoint.Position).Magnitude > AutofarmRadius then continue end
@@ -908,7 +923,7 @@ local Killaura = Main:AddRightGroupbox('Killaura')
 
 local GetItemById = function(Id)
     if Id == 0 then return end
-    for _, Item in Inventory:GetChildren() do
+    for _, Item in next, Inventory:GetChildren() do
         if Item.Value == Id then
             return Item
         end
@@ -980,7 +995,7 @@ KillauraSkill.GetSword = function(Class)
     elseif KillauraSkill.Sword and KillauraSkill.Sword.Parent and ItemDatabase[KillauraSkill.Sword.Name].Class.Value == Class then
         return KillauraSkill.Sword
     end
-    for _, Item in Inventory:GetChildren() do
+    for _, Item in next, Inventory:GetChildren() do
         local ItemInDatabase = ItemDatabase[Item.Name]
         if ItemInDatabase.Type.Value == 'Weapon' and ItemInDatabase.Class.Value == Class then
             KillauraSkill.Sword = Item
@@ -1157,7 +1172,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
 
         if not (Humanoid.Health > 0) then continue end
 
-        for _, Target in Mobs:GetChildren() do
+        for _, Target in next, Mobs:GetChildren() do
             if OnCooldown[Target] then continue end
             if not CheckTarget(Target) then continue end
             local TargetHumanoidRootPart = Target.HumanoidRootPart
@@ -1181,7 +1196,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
 
         if not Toggles.AttackPlayers.Value then continue end
 
-        for _, Target in Players:GetPlayers() do
+        for _, Target in next, Players:GetPlayers() do
             if Target == LocalPlayer then continue end
             local TargetCharacter = Target.Character
             if not TargetCharacter then continue end
@@ -1347,9 +1362,9 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         if Teleporting then return end
         Teleporting = true
         TeleportToCFrame(HumanoidRootPart.CFrame.Rotation + Mouse.Hit.Position)
-        AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
-            return tag == 'Teleporting'
-        end)
+        -- AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
+        --     return tag == 'Teleporting'
+        -- end)
         Teleporting = false
     end
     return function(Value)
@@ -1466,21 +1481,21 @@ task.spawn(function()
         }
     }
 
-    for _, DoorPosition in HiddenDoors[game.PlaceId] or {} do
+    for _, DoorPosition in next, HiddenDoors[game.PlaceId] or {} do
         LocalPlayer:RequestStreamAroundAsync(DoorPosition, math.huge)
     end
 
     local TeleportSystemIndex = 0
     local TeleportSystems = {}
-    for _, TeleportSystem in workspace:GetChildren() do
+    for _, TeleportSystem in next, workspace:GetChildren() do
         if TeleportSystem.Name == 'TeleportSystem' then
             TeleportSystemIndex += 1
             TeleportSystems[TeleportSystemIndex] = {}
-            for _, Part in TeleportSystem:GetChildren() do
+            for _, Part in next, TeleportSystem:GetChildren() do
                 if Part.Name == 'Part' then
                     table.insert(TeleportSystems[TeleportSystemIndex], Part)
                     local Location = #Teleports + 1
-                    for Name, Position in ImportantTeleports do
+                    for Name, Position in next, ImportantTeleports do
                         if Part.CFrame.Position == Position then
                             Location = Name
                             break
@@ -1584,7 +1599,7 @@ local Miscs = Main:AddLeftTabbox()
 local Misc1 = Miscs:AddTab('Misc')
 
 local AnimPackNames = {}
-for _, AnimPack in game:GetService('StarterPlayer').StarterCharacterScripts.Animate.Packs:GetChildren() do
+for _, AnimPack in next, game:GetService('StarterPlayer').StarterCharacterScripts.Animate.Packs:GetChildren() do
     table.insert(AnimPackNames, AnimPack.Name)
 end
 
@@ -1620,7 +1635,7 @@ local AnimPackAnimSettings = {
 }
 
 local UnownedAnimPacks = {}
-for AnimPackName, SwordClass in AnimPackAnimSettings do
+for AnimPackName, SwordClass in next, AnimPackAnimSettings do
     if Profile.AnimPacks:FindFirstChild(AnimPackName) then continue end
     local AnimPack = Instance.new('StringValue')
     AnimPack.Name = AnimPackName
@@ -1629,7 +1644,7 @@ for AnimPackName, SwordClass in AnimPackAnimSettings do
 end
 
 Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs' }):OnChanged(function(Value)
-    for _, AnimPack in UnownedAnimPacks do
+    for _, AnimPack in next, UnownedAnimPacks do
         AnimPack.Parent = Value and Profile.AnimPacks or nil
     end
 end)
@@ -1637,7 +1652,7 @@ end)
 PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(Entry)
     Entry.Activated:Connect(function()
         local AnimPackName = (function()
-            for _, Item in Database.CashShop:GetChildren() do
+            for _, Item in next, Database.CashShop:GetChildren() do
                 if Item.Icon.Texture ~= Entry.Frame.Icon.Image then continue end
                 return Item.Name:gsub(' Animation Pack', ''):gsub(' ', '')
             end
@@ -1683,7 +1698,7 @@ local EquipBestArmorAndWeapon = function()
     local HighestDamage = 0
     local BestArmor, BestWeapon
 
-    for _, Item in Inventory:GetChildren() do
+    for _, Item in next, Inventory:GetChildren() do
         local ItemInDatabase = ItemDatabase[Item.Name]
 
         if not Toggles.WeaponAndArmorLevelBypass.Value
@@ -1792,10 +1807,17 @@ local PlayersBox = Misc:AddRightGroupbox('Players')
 
 local TargetPlayer
 
+local bypassedViewingProfile = pcall(function()
+    local signal = LocalPlayer:GetAttributeChangedSignal('ViewingProfile')
+    local connection = getconnections(signal)[1]
+    assert(type(connection.Function) == 'function', 'shitsploit')
+    connection:Disable()
+end)
+
 PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, SpecialType = 'Player' }):OnChanged(function(PlayerName)
     TargetPlayer = PlayerName and Players[PlayerName]
 
-    if getconnections and Toggles.ViewPlayersInventory and Toggles.ViewPlayersInventory.Value then
+    if bypassedViewingProfile and Toggles.ViewPlayersInventory and Toggles.ViewPlayersInventory.Value then
         LocalPlayer:SetAttribute('ViewingProfile', PlayerName)
     end
 end)
@@ -1816,9 +1838,9 @@ PlayersBox:AddButton({ Text = `View player's stats`, Func = function()
             Skills = 'no'
         }
 
-        for StatName, _ in Stats do
+        for StatName, _ in next, Stats do
             local StatChildren = {}
-            for _, Stat in PlayerProfile:WaitForChild(StatName):GetChildren() do
+            for _, Stat in next, PlayerProfile:WaitForChild(StatName):GetChildren() do
                 table.insert(StatChildren, Stat.Name)
             end
             if #StatChildren > 0 then
@@ -1839,11 +1861,7 @@ PlayersBox:AddButton({ Text = `View player's stats`, Func = function()
     end)
 end })
 
-if getconnections then
-    for _, Connection in getconnections(LocalPlayer:GetAttributeChangedSignal('ViewingProfile')) do
-        Connection:Disable()
-    end
-
+if bypassedViewingProfile then
     PlayersBox:AddToggle('ViewPlayersInventory', { Text = `View player's inventory` }):OnChanged(function(Value)
         LocalPlayer:SetAttribute('ViewingProfile', Value and Options.PlayerList.Value)
     end)
@@ -1967,7 +1985,7 @@ end)
 
 local OwnedSkills = {}
 
-for _, Skill in Profile:WaitForChild('Skills'):GetChildren() do
+for _, Skill in next, Profile:WaitForChild('Skills'):GetChildren() do
     table.insert(OwnedSkills, Skill.Name)
 end
 
@@ -2158,7 +2176,7 @@ local ModCheck = function(Player, Leaving)
 end
 
 
-for _, Player in Players:GetPlayers() do
+for _, Player in next, Players:GetPlayers() do
     task.spawn(ModCheck, Player)
 end
 
@@ -2174,7 +2192,7 @@ ModDetector:AddButton({ Text = `Mods in game (don't use at spawn)`, Func = funct
     CheckingModsIngame = {}
     Library:Notify('Checking profiles...')
     local counter = 0
-    for _, UserId in Mods do
+    for _, UserId in next, Mods do
         task.spawn(function()
             local response = InvokeFunction('Teleport', { 'FriendTeleport', UserId })
             if not response then return end
@@ -2261,7 +2279,7 @@ end
 
 local Swing = (function()
     if not getgc then return end
-    for _, Func in getgc() do
+    for _, Func in next, getgc() do
         if type(Func) == 'function' and debug.info(Func, 'n') == 'Swing' then
             return Func
         end
@@ -2455,12 +2473,12 @@ Event.OnClientEvent:Connect(function(...)
     elseif args[2][2] == 'TradeCompleted' then
         local TargetRole = LastTradeChange.Requester == LocalPlayer and 'Partner' or 'Requester'
         local OurRole = TargetRole == 'Partner' and 'Requester' or 'Partner'
-        for _, ItemData in LastTradeChange[TargetRole .. 'Items'] do
+        for _, ItemData in next, LastTradeChange[TargetRole .. 'Items'] do
             if not ItemData.item.Name:find('Upgrade Crystal') then continue end
             CrystalCounter.Received.Value += 1
         end
         CrystalCounter.Received.Update()
-        for _, ItemData in LastTradeChange[OurRole .. 'Items'] do
+        for _, ItemData in next, LastTradeChange[OurRole .. 'Items'] do
             if not ItemData.item.Name:find('Upgrade Crystal') then continue end
             CrystalCounter.Given.Value += 1
             if not Toggles.SendTrades.Value then continue end
