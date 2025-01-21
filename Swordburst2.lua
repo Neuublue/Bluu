@@ -1149,7 +1149,7 @@ local useSkill = function(skill)
                         return true
                     end
                     staminaOld = Value
-                end)
+                end, 0.1)
                 InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = rightSwordOld.Value }, 'Right' })
                 if leftSwordOld then
                     InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = leftSwordOld.Value }, 'Left' })
