@@ -68,8 +68,8 @@ local AnimPacks = Profile:WaitForChild('AnimPacks')
 local Equip = Profile:WaitForChild('Equip')
 
 local Exp = Profile:WaitForChild('Stats'):WaitForChild('Exp')
-local getLevel = function(Value)
-    return math.floor((Value or Exp.Value) ^ (1/3))
+local getLevel = function(value)
+    return math.floor((value or Exp.Value) ^ (1/3))
 end
 local Vel = Exp.Parent:WaitForChild('Vel')
 
@@ -290,9 +290,9 @@ end
 
 onHumanoidAdded()
 
-LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     lastDeathCFrame = lastDeathCFrame or HumanoidRootPart.CFrame
-    Character = NewCharacter
+    Character = newCharacter
     Humanoid = Character:WaitForChild('Humanoid')
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
     Entity = Character:WaitForChild('Entity', 2)
@@ -528,9 +528,9 @@ Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold (0 = auto)'
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset (max = auto)', Default = 60, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset (max = auto)', Default = 40, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmRadius', { Text = 'Radius (0 = infinite)', Default = 0, Min = 0, Max = 20000, Rounding = 0, Suffix = 'm' })
-Autofarm:AddToggle('UseWaypoint', { Text = 'Use waypoint' }):OnChanged(function(Value)
+Autofarm:AddToggle('UseWaypoint', { Text = 'Use waypoint' }):OnChanged(function(value)
     waypoint.CFrame = HumanoidRootPart.CFrame
-    waypointLabel.Visible = Value
+    waypointLabel.Visible = value
 end)
 
 local mobList = (function()
@@ -825,7 +825,7 @@ local mobList = (function()
     })[game.PlaceId] or {}
 end)()
 
--- Autofarm:AddButton({ Text = 'Copy Moblist', Func = function()
+-- Autofarm:AddButton({ Text = 'Copy moblist', Func = function()
 --     if #mobList == 0 then
 --         return setclipboard(`[{game.PlaceId}] = \{\}`)
 --     end
@@ -849,7 +849,7 @@ end)()
 
 local Autowalk = Farming:AddTab('Autowalk')
 
-Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function(Value)
+Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
     toggleLerp(Toggles.Autowalk)
     linearVelocity.Parent = nil
     local path, waypoints = game:GetService('PathfindingService'):CreatePath({ AgentRadius = 3, AgentHeight = 6 }), {}
@@ -1049,13 +1049,13 @@ end
 
 updateSwordDamage()
 
-Equip.Right.Changed:Connect(function(Id)
-    rightSword = getItemById(Id)
+Equip.Right.Changed:Connect(function(id)
+    rightSword = getItemById(id)
     updateSwordDamage()
 end)
 
-Equip.Left.Changed:Connect(function(Id)
-    leftSword = getItemById(Id)
+Equip.Left.Changed:Connect(function(id)
+    leftSword = getItemById(id)
     updateSwordDamage()
 end)
 
@@ -1144,11 +1144,11 @@ local useSkill = function(skill)
             Event:FireServer('Skills', { 'UseSkill', skill.Name })
             if rightSwordOld then
                 local staminaOld = Stamina.Value
-                awaitEventTimeout(Stamina.Changed, function(Value)
-                    if staminaOld - Value == skill.Cost then
+                awaitEventTimeout(Stamina.Changed, function(value)
+                    if staminaOld - value == skill.Cost then
                         return true
                     end
-                    staminaOld = Value
+                    staminaOld = value
                 end, 0.1)
                 InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = rightSwordOld.Value }, 'Right' })
                 if leftSwordOld then
@@ -1203,7 +1203,7 @@ local attack = function(target)
     end)
 end
 
-Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function(Value)
+Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
     while Toggles.Killaura.Value do
         task.wait(0.01)
 
@@ -1266,7 +1266,8 @@ Killaura:AddSlider('KillauraRange', { Text = 'Range (0 = auto)', Default = 0, Mi
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
 Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
 
-Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values = {}, AllowNull = true }):OnChanged(function(value)
+Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values = {}, AllowNull = true })
+:OnChanged(function(value)
     if not value then
         KillauraSkill.Class = nil
         KillauraSkill.Name = nil
@@ -1311,9 +1312,9 @@ if getLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
     Options.SkillToUse:SetValues()
 else
     local SkillConnection
-    SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
+    SkillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
         if getLevel() < 60 then return end
-        if Skill.Name ~= 'Summon Pistol' then return end
+        if skill.Name ~= 'Summon Pistol' then return end
         table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
         Options.SkillToUse:SetValues()
         SkillConnection:Disconnect()
@@ -1325,9 +1326,9 @@ end
 --     Options.SkillToUse:SetValues()
 -- else
 --     local SkillConnection
---     SkillConnection = Profile.Skills.ChildAdded:Connect(function(Skill)
+--     SkillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
 --         if GetLevel() < 200 then return end
---         if Skill.Name ~= 'Meteor Shot' then return end
+--         if skill.Name ~= 'Meteor Shot' then return end
 --         table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
 --         Options.SkillToUse:SetValues()
 --         SkillConnection:Disconnect()
@@ -1357,9 +1358,10 @@ if RequiredServices then
     local rollSkillHandler = RequiredServices.Skills.skillHandlers.Roll
     local rollCost = Skills.Roll.Cost.Value
 
-    AdditionalCheats:AddToggle('NoSprintAndRollCost', { Text = 'No sprint & roll cost' }):OnChanged(function(Value)
-        debug.setconstant(rollSkillHandler, 6, Value and '' or 'UseSkill')
-        Skills.Roll.Cost.Value = Value and 0 or rollCost
+    AdditionalCheats:AddToggle('NoSprintAndRollCost', { Text = 'No sprint & roll cost' })
+    :OnChanged(function(value)
+        debug.setconstant(rollSkillHandler, 6, value and '' or 'UseSkill')
+        Skills.Roll.Cost.Value = value and 0 or rollCost
     end)
 
     AdditionalCheats:AddSlider('SprintSpeed', { Text = 'Sprint speed', Default = 27, Min = 27, Max = 100, Rounding = 0, Suffix = 'mps' })
@@ -1369,12 +1371,13 @@ else
         Humanoid.WalkSpeed = Options.WalkSpeed.Value
     end)
 
-    AdditionalCheats:AddSlider('WalkSpeed', { Text = 'Walk speed', Default = 20, Min = 20, Max = 100, Rounding = 0, Suffix = 'mps' }):OnChanged(function(Value)
-        Humanoid.WalkSpeed = Value
+    AdditionalCheats:AddSlider('WalkSpeed', { Text = 'Walk speed', Default = 20, Min = 20, Max = 100, Rounding = 0, Suffix = 'mps' })
+    :OnChanged(function(value)
+        Humanoid.WalkSpeed = value
     end)
 end
 
-AdditionalCheats:AddToggle('Fly', { Text = 'Fly' }):OnChanged(function(Value)
+AdditionalCheats:AddToggle('Fly', { Text = 'Fly' }):OnChanged(function()
     toggleLerp(Toggles.Fly)
     while Toggles.Fly.Value do
         local deltaTime = task.wait()
@@ -1408,8 +1411,8 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         -- end)
         teleporting = false
     end
-    return function(Value)
-        if Value then
+    return function(value)
+        if value then
             if Button1DownConnection then return end
             Button1DownConnection = mouse.Button1Down:Connect(onButton1Down)
         elseif Button1DownConnection then
@@ -1578,10 +1581,10 @@ AdditionalCheats:AddDropdown('PerformanceBoosters', {
     },
     Multi = true,
     AllowNull = true
-}):OnChanged(function(Values)
-    RunService:Set3dRenderingEnabled(not Values['Disable rendering'])
+}):OnChanged(function(values)
+    RunService:Set3dRenderingEnabled(not values['Disable rendering'])
     if setfpscap then
-        setfpscap(Values['Limit FPS'] and 15 or UserSettings():GetService('UserGameSettings').FramerateCap)
+        setfpscap(values['Limit FPS'] and 15 or UserSettings():GetService('UserGameSettings').FramerateCap)
     end
 end)
 
@@ -1614,20 +1617,20 @@ if RequiredServices then
         return UIServerEventOld(...)
     end
 else
-    workspace.ChildAdded:Connect(function(Part)
+    workspace.ChildAdded:Connect(function(part)
         if not Options.PerformanceBoosters.Value['Damage Text'] then return end
-        if Part:IsA('Part') then return end
-        if not Part:WaitForChild('DamageText', 1) then return end
-        Part:Destroy()
+        if part:IsA('Part') then return end
+        if not part:WaitForChild('DamageText', 1) then return end
+        part:Destroy()
     end)
 
-    Chat.ScrollContent.ChildAdded:Connect(function(Frame)
+    Chat.ScrollContent.ChildAdded:Connect(function(frame)
         if not Options.PerformanceBoosters.Value['No vel obtained in chat'] then return end
-        if Frame.Name ~= 'ChatVelTemplate' then return end
-        Frame.Visible = false
-        Frame.Size = UDim2.fromOffset(0, -5)
-        Frame:GetPropertyChangedSignal('Position'):Wait()
-        Frame:Destroy()
+        if frame.Name ~= 'ChatVelTemplate' then return end
+        frame.Visible = false
+        frame.Size = UDim2.fromOffset(0, -5)
+        frame:GetPropertyChangedSignal('Position'):Wait()
+        frame:Destroy()
     end)
 end
 
@@ -1721,9 +1724,10 @@ Camera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
     Chat.Size = UDim2.new(0, 600, 0, Camera.ViewportSize.Y - 177)
 end)
 
-Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' }):OnChanged(function(Value)
-    LocalPlayer.CameraMaxZoomDistance = Value and math.huge or 15
-    LocalPlayer.DevCameraOcclusionMode = Value and 1 or 0
+Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' })
+:OnChanged(function(value)
+    LocalPlayer.CameraMaxZoomDistance = value and math.huge or 15
+    LocalPlayer.DevCameraOcclusionMode = value and 1 or 0
 end)
 
 local Misc2 = Miscs:AddTab('More misc')
@@ -1824,8 +1828,8 @@ Level.Changed:Connect(equipBestWeaponAndArmor)
 
 local resetBindable = Instance.new('BindableEvent')
 resetBindable.Event:Connect(fastRespawn)
-Misc2:AddToggle('FastRespawns', { Text = 'Fast respawns' }):OnChanged(function(Value)
-    StarterGui:SetCore('ResetButtonCallback', not Value or resetBindable)
+Misc2:AddToggle('FastRespawns', { Text = 'Fast respawns' }):OnChanged(function(value)
+    StarterGui:SetCore('ResetButtonCallback', not value or resetBindable)
 end)
 
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
@@ -1850,11 +1854,12 @@ local bypassedViewingProfile = pcall(function()
     getconnections(signal)[1]:Disable()
 end)
 
-PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, SpecialType = 'Player' }):OnChanged(function(PlayerName)
-    selectedPlayer = PlayerName and Players[PlayerName]
+PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, SpecialType = 'Player' })
+:OnChanged(function(playerName)
+    selectedPlayer = playerName and Players[playerName]
 
     if bypassedViewingProfile and Toggles.ViewPlayersInventory and Toggles.ViewPlayersInventory.Value then
-        LocalPlayer:SetAttribute('ViewingProfile', PlayerName)
+        LocalPlayer:SetAttribute('ViewingProfile', playerName)
     end
 end)
 
@@ -1917,10 +1922,10 @@ PlayersBox:AddToggle('ViewPlayer', { Text = 'View player' }):OnChanged(function(
     Camera.CameraSubject = Character
 end)
 
-PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function(Value)
+PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function(value)
     toggleLerp(Toggles.GoToPlayer)
     toggleNoclip(Toggles.GoToPlayer)
-    if not Value then return end
+    if not value then return end
     while Toggles.GoToPlayer.Value do
         task.wait()
 
@@ -2266,9 +2271,9 @@ end)
 FarmingKicks:AddToggle('LevelKick', { Text = 'Level kick' })
 FarmingKicks:AddSlider('KickLevel', { Text = 'Kick level', Default = 130, Min = 0, Max = 400, Rounding = 0, Compact = true })
 
-Profile.Skills.ChildAdded:Connect(function(Skill)
+Profile.Skills.ChildAdded:Connect(function(skill)
     if not Toggles.SkillKick.Value then return end
-    LocalPlayer:Kick(`\n\n{Skill.Name} acquired at {os.date('%I:%M:%S %p')}\n`)
+    LocalPlayer:Kick(`\n\n{skill.Name} acquired at {os.date('%I:%M:%S %p')}\n`)
 end)
 
 FarmingKicks:AddToggle('SkillKick', { Text = 'Skill kick' })
@@ -2278,7 +2283,7 @@ FarmingKicks:AddInput('KickWebhook', { Text = 'Kick webhook', Finished = true, P
     sendTestMessage(Options.KickWebhook.Value)
 end)
 
-game:GetService('GuiService').ErrorMessageChanged:Connect(function(Message)
+game:GetService('GuiService').ErrorMessageChanged:Connect(function(message)
     local Body = {
         embeds = {{
             title = 'You were kicked!',
@@ -2294,7 +2299,7 @@ game:GetService('GuiService').ErrorMessageChanged:Connect(function(Message)
                     inline = true
                 }, {
                     name = 'Message',
-                    value = Message,
+                    value = message,
                     inline = true
                 },
             }
