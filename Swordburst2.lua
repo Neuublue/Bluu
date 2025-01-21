@@ -1162,9 +1162,9 @@ local useSkill = function(skill)
     end
 
     task.spawn(function()
-        task.wait(2.7)
+        task.wait(2.39)
         skill.LastHit = true
-        task.wait(0.3)
+        task.wait(0.61)
         skill.LastHit = false
         skill.Active = false
         if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
