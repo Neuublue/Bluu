@@ -1904,7 +1904,7 @@ end })
 
 if bypassedViewingProfile then
     PlayersBox:AddToggle('ViewPlayersInventory', { Text = `View player's inventory` }):OnChanged(function(value)
-        value = value and Options.PlayerList.Value
+        value = value and Options.PlayerList.Value or nil
         if LocalPlayer:GetAttribute('ViewingProfile') ~= value then
             LocalPlayer:SetAttribute('ViewingProfile', value)
         end
