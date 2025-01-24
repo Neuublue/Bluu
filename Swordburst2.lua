@@ -1837,13 +1837,28 @@ Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
 
 local Misc = Window:AddTab('Misc')
 
+local ItemsBox = Misc:AddLeftGroupbox('Items')
+
 if RequiredServices then
-    local ItemsBox = Misc:AddLeftGroupbox('Items')
     local UIModule = RequiredServices.UI
     ItemsBox:AddButton({ Text = 'Open upgrade', Func = UIModule.openUpgrade })
     ItemsBox:AddButton({ Text = 'Open dismantle', Func = UIModule.openDismantle })
     ItemsBox:AddButton({ Text = 'Open crystal forge', Func = UIModule.openCrystalForge })
 end
+
+ItemsBox:AddInput('UseItem', { Text = 'Use item(s)', Finished = true, Placeholder = 'Big Candy Bag' })
+:OnChanged(function(value)
+    if value == '' then return end
+    local item = Inventory:FindFirstChild(value)
+    if not item then
+        return Library:Notify(value..' not found in inventory')
+    elseif not Items[value]:FindFirstChild('Unboxable') then
+        return Library:Notify(value..' is not usable')
+    end
+    for _ = 1, item:FindFirstChild('Count') and item.Count.Value or 1 do
+        Event:FireServer('Equipment', { 'UseItem', item })
+    end
+end)
 
 local PlayersBox = Misc:AddRightGroupbox('Players')
 
