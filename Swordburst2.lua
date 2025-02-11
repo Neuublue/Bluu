@@ -209,6 +209,23 @@ end
 
 local lastDeathCFrame
 
+local swingDamageEnabled = true
+local toggleSwingDamage = function(value)
+    swingDamageEnabled = value
+
+    local RightWeapon = Character:FindFirstChild('RightWeapon')
+    if RightWeapon and RightWeapon:FindFirstChild('Tool') and RightWeapon.Tool:FindFirstChild('Blade') then
+        RightWeapon.Tool.Blade.CanTouch = value
+    else
+        return
+    end
+
+    local LeftWeapon = Character:FindFirstChild('LeftWeapon')
+    if LeftWeapon and LeftWeapon:FindFirstChild('Tool') and LeftWeapon.Tool:FindFirstChild('Blade') then
+        LeftWeapon.Tool.Blade.CanTouch = value
+    end
+end
+
 local onHumanoidAdded = function()
     Humanoid.Died:Connect(function()
         lastDeathCFrame = HumanoidRootPart.CFrame
@@ -258,6 +275,13 @@ local onHumanoidAdded = function()
         })
     end
 
+    toggleSwingDamage(swingDamageEnabled)
+    Character.ChildAdded:Connect(function(child)
+        if child.Name == 'RightWeapon' or child.Name == 'LeftWeapon' then
+            child:WaitForChild('Tool'):WaitForChild('Blade').CanTouch = swingDamageEnabled
+        end
+    end)
+
     Stamina.Changed:Connect(function(value)
         if not Toggles.ResetOnLowStamina.Value then return end
         if not KillauraSkill.Active and value < KillauraSkill.Cost then
@@ -303,16 +327,18 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     onHumanoidAdded()
 end)
 
-local isAlive = function(entity)
-    return entity
-    and entity.Parent
-    and entity:FindFirstChild('HumanoidRootPart')
-    and entity:FindFirstChild('Entity')
-    and entity.Entity:FindFirstChild('Health')
-    and entity.Entity.Health.Value > 0
-    and (
-        not entity.Entity:FindFirstChild('HitLives')
-        or entity.Entity.HitLives.Value > 0
+local isDead = function(entity)
+    return not (
+        entity
+        and entity.Parent
+        and entity:FindFirstChild('HumanoidRootPart')
+        and entity:FindFirstChild('Entity')
+        and entity.Entity:FindFirstChild('Health')
+        and entity.Entity.Health.Value > 0
+        and (
+            not entity.Entity:FindFirstChild('HitLives')
+            or entity.Entity.HitLives.Value > 0
+        )
     )
 end
 
@@ -426,7 +452,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
             local prioritizedDistance = distance
             for _, mob in next, Mobs:GetChildren() do
                 if Options.IgnoreMobs.Value[mob.Name] then continue end
-                if not isAlive(mob) then continue end
+                if isDead(mob) then continue end
                 if Toggles.UseWaypoint.Value and (mob.HumanoidRootPart.Position - waypoint.Position).Magnitude > autofarmRadius then continue end
 
                 local newDistance = (mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
@@ -447,7 +473,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
 
         if not target then
             if not Toggles.UseWaypoint.Value then continue end
-        elseif target ~= waypoint and not isAlive(target) or Options.IgnoreMobs.Value[target.Name] then
+        elseif target ~= waypoint and isDead(target) or Options.IgnoreMobs.Value[target.Name] then
             targetRefreshTick = 0
             continue
         end
@@ -459,7 +485,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
         local targetSize = targetHumanoidRootPart.Size
 
         local boundingRadius = math.sqrt(targetSize.X ^ 2 + targetSize.Z ^ 2) / 2
-            + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 29.9 or 14.9)
+            + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 29 or 14)
 
         local verticalOffset = Options.AutofarmVerticalOffset.Value
         local horizontalOffset = Options.AutofarmHorizontalOffset.Value
@@ -494,8 +520,8 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
         end
 
         local targetPosition = targetCFrame.Position + Vector3.new(0, verticalOffset, 0)
-        -- if targetHRP:FindFirstChild('BodyVelocity') then
-        --     targetPosition += targetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
+        -- if targetHumanoidRootPart:FindFirstChild('BodyVelocity') then
+        --     targetPosition += targetHumanoidRootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
         -- end
 
         if horizontalOffset > 0 then
@@ -892,7 +918,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
             local prioritizedDistance = distance
             for _, mob in next, Mobs:GetChildren() do
                 if Options.IgnoreMobs.Value[mob.Name] then continue end
-                if not isAlive(mob) then continue end
+                if isDead(mob) then continue end
                 if Toggles.UseWaypoint.Value and (mob.HumanoidRootPart.Position - waypoint.Position).Magnitude > radius then continue end
 
                 local newDistance = (mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
@@ -913,24 +939,37 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
             waypoints = {}
 
             if target then
-                local targetHRP = target.HumanoidRootPart
-                local targetPosition = targetHRP.CFrame.Position
-                if targetHRP:FindFirstChild('BodyVelocity') then
-                    targetPosition += targetHRP.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
+                local targetHumanoidRootPart = target.HumanoidRootPart
+                local targetPosition = targetHumanoidRootPart.CFrame.Position
+                if targetHumanoidRootPart:FindFirstChild('BodyVelocity') then
+                    targetPosition += targetHumanoidRootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
                 end
 
-                if Options.AutowalkHorizontalOffset.Value > 0 then
-                    local difference = HumanoidRootPart.CFrame.Position - targetHRP.CFrame.Position
+                local horizontalOffset = Options.AutowalkHorizontalOffset.Value
+
+                local myPosition = HumanoidRootPart.CFrame.Position
+
+                if horizontalOffset == Options.AutowalkHorizontalOffset.Max then
+                    local targetSize = targetHumanoidRootPart.Size
+                    local boundingRadius = math.sqrt(targetSize.X ^ 2 + targetSize.Z ^ 2) / 2
+                        + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 29 or 14)
+                    local targetY, myY = targetPosition.Y, myPosition.Y
+                    local verticalOffset = targetY > myY and targetY - myY or myY - targetY
+                    horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
+                end
+
+                if horizontalOffset > 0 then
+                    local difference = myPosition - targetPosition
                     difference -= Vector3.new(0, difference.Y, 0)
                     if difference.Magnitude ~= 0 then
-                        targetPosition += difference.Unit * Options.AutowalkHorizontalOffset.Value
+                        targetPosition += difference.Unit * horizontalOffset
                     end
                 end
 
                 waypoints = { HumanoidRootPart.CFrame, { Position = targetPosition } }
 
                 if Toggles.Pathfind.Value then
-                    path:ComputeAsync(HumanoidRootPart.CFrame.Position, targetPosition)
+                    path:ComputeAsync(myPosition, targetPosition)
                     if path.Status == Enum.PathStatus.Success then
                         waypoints = path:GetWaypoints()
                     end
@@ -945,7 +984,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
             continue
         end
 
-        if not isAlive(target) or Options.IgnoreMobs.Value[target.Name] then
+        if isDead(target) or Options.IgnoreMobs.Value[target.Name] then
             setWalkingAnimation(false)
             targetRefreshTick = 0
             continue
@@ -961,7 +1000,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
 end)
 
 Autowalk:AddToggle('Pathfind', { Text = 'Pathfind', Default = true })
-Autowalk:AddSlider('AutowalkHorizontalOffset', { Text = 'Horizontal offset', Default = 10, Min = 0, Max = 100, Rounding = 0, Suffix = 'm' })
+Autowalk:AddSlider('AutowalkHorizontalOffset', { Text = 'Horizontal offset (max = auto)', Default = 40, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
 Autowalk:AddLabel('Remaining settings in Autofarm')
 
 local Killaura = Main:AddRightGroupbox('Killaura')
@@ -1131,17 +1170,6 @@ local getKillauraThreads = (function()
     end
 end)()
 
-local RPCKey
-local AttackKey
-
-if RequiredServices then
-    RPCKey = debug.getupvalue(RequiredServices.Combat.DealDamage, 2)
-    AttackKey = debug.getconstant(RequiredServices.Combat.DealDamage, 5)
-end
-
-RPCKey = RPCKey or Function:InvokeServer('RPCKey', {})
-AttackKey = AttackKey or '2'
-
 local onCooldown = {}
 
 local useSkill = function(skill)
@@ -1200,40 +1228,49 @@ local useSkill = function(skill)
     end)
 end
 
+local dealDamage = (function()
+    if RequiredServices then
+        return RequiredServices.Combat.DealDamage
+    end
+
+    local RPCKey = Function:InvokeServer('RPCKey', {})
+    return function(target, attackName)
+        Event:FireServer('Combat', RPCKey, { 'Attack', target, attackName, '2' })
+    end
+end)()
+
 local attack = function(target)
-    if not isAlive(target) then return end
+    if isDead(target) then return end
 
     if Toggles.UseSkillPreemptively.Value or target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
         useSkill(KillauraSkill)
     end
 
-    if not isAlive(target) then return end
+    if isDead(target) then return end
 
-	local threads = getKillauraThreads(target.Entity)
-
-    local attackName = KillauraSkill.Active and KillauraSkill.Name or nil
+    local threads = getKillauraThreads(target.Entity)
 
     for _ = 1, threads do
-        Event:FireServer('Combat', RPCKey, { 'Attack', target, attackName, AttackKey })
+        dealDamage(target, KillauraSkill.Active and KillauraSkill.Name)
     end
 
     onCooldown[target] = true
-    task.spawn(function()
-        task.wait(threads * Options.KillauraDelay.Value)
+    task.delay(threads * Options.KillauraDelay.Value, function()
         onCooldown[target] = nil
     end)
 end
 
 Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
+    toggleSwingDamage(false)
     while Toggles.Killaura.Value do
         task.wait(0.01)
 
         if not (Humanoid.Health > 0) then continue end
 
-        for _, mob in next, Mobs:GetChildren() do
-            if onCooldown[mob] then continue end
-            if not isAlive(mob) then continue end
-            local targetHumanoidRootPart = mob.HumanoidRootPart
+        for _, target in next, Mobs:GetChildren() do
+            if onCooldown[target] then continue end
+            if isDead(target) then continue end
+            local targetHumanoidRootPart = target.HumanoidRootPart
             if Options.KillauraRange.Value == 0 then
                 local targetCFrame = targetHumanoidRootPart.CFrame
                 local targetSize = targetHumanoidRootPart.Size
@@ -1248,37 +1285,41 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             elseif (targetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
                 continue
             end
-
-            attack(mob)
+            attack(target)
         end
 
-        if not Toggles.AttackPlayers.Value then continue end
-
-        for _, player in next, Players:GetPlayers() do
-            if player == LocalPlayer then continue end
-            local targetCharacter = player.Character
-            if not targetCharacter then continue end
-            if Options.IgnorePlayers.Value[player.Name] then continue end
-            if onCooldown[targetCharacter] then continue end
-            if not isAlive(targetCharacter) then continue end
-            local targetHumanoidRootPart = targetCharacter.HumanoidRootPart
-            if Options.KillauraRange.Value == 0 then
-                local targetCFrame = targetHumanoidRootPart.CFrame
-                local targetSize = targetHumanoidRootPart.Size
-                if (HumanoidRootPart.Position - targetCFrame.Position).Magnitude >
-                    math.sqrt(targetSize.X ^ 2 + targetSize.Z ^ 2) / 2
-                    + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 30 or 15)
-                then
-                    continue
-                elseif HumanoidRootPart.Position.Y < targetCFrame.Y - targetSize.Y / 2 - 3 then
+        if Toggles.AttackPlayers.Value then
+            for _, player in next, Players:GetPlayers() do
+                if player == LocalPlayer then continue end
+                if Options.IgnorePlayers.Value[player.Name] then continue end
+                local target = player.Character
+                if not target then continue end
+                if onCooldown[target] then continue end
+                if isDead(target) then continue end
+                local targetHumanoidRootPart = target.HumanoidRootPart
+                if Options.KillauraRange.Value == 0 then
+                    local targetCFrame = targetHumanoidRootPart.CFrame
+                    local targetSize = targetHumanoidRootPart.Size
+                    if (HumanoidRootPart.Position - targetCFrame.Position).Magnitude >
+                        math.sqrt(targetSize.X ^ 2 + targetSize.Z ^ 2) / 2
+                        + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 30 or 15)
+                    then
+                        continue
+                    elseif HumanoidRootPart.Position.Y < targetCFrame.Y - targetSize.Y / 2 - 3 then
+                        continue
+                    end
+                elseif (targetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
                     continue
                 end
-            elseif (targetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
-                continue
+                attack(target)
             end
-            attack(targetCharacter)
+        end
+
+        if RequiredServices then
+            task.spawn(RequiredServices.Actions[next(onCooldown) and 'StartSwing' or 'StopSwing'])
         end
     end
+    toggleSwingDamage(true)
 end)
 
 Killaura:AddSlider('KillauraDelay', { Text = 'Delay (breaks damage under 0.3)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
@@ -1950,7 +1991,7 @@ end
 PlayersBox:AddToggle('ViewPlayer', { Text = 'View player' }):OnChanged(function(value)
     if not value then return end
     while Toggles.ViewPlayer.Value do
-        if selectedPlayer and isAlive(selectedPlayer.Character) then
+        if selectedPlayer and not isDead(selectedPlayer.Character) then
             Camera.CameraSubject = selectedPlayer.Character
         end
         task.wait(0.1)
@@ -1965,10 +2006,10 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
     while Toggles.GoToPlayer.Value do
         task.wait()
 
-        if not (selectedPlayer and isAlive(selectedPlayer.Character)) then continue end
+        if not selectedPlayer or isDead(selectedPlayer.Character) then continue end
 
-        local targetHRP = selectedPlayer.Character.HumanoidRootPart
-        local targetCFrame = targetHRP.CFrame +
+        local targetHumanoidRootPart = selectedPlayer.Character.HumanoidRootPart
+        local targetCFrame = targetHumanoidRootPart.CFrame +
             Vector3.new(Options.XOffset.Value, Options.YOffset.Value, Options.ZOffset.Value)
 
         local difference = targetCFrame.Position - HumanoidRootPart.CFrame.Position
@@ -2239,15 +2280,13 @@ local modCheck = function(player, leaving)
 
     StarterGui:SetCore('PromptBlockPlayer', player)
 
-    task.spawn(function()
-        task.wait(Options.KickDelay.Value)
+    task.delay(Options.KickDelay.Value, function()
         if Toggles.Autokick.Value then
             LocalPlayer:Kick(`\n\n{player.Name} joined at {os.date('%I:%M:%S %p')}\n`)
         end
     end)
 
-    task.spawn(function()
-        task.wait(Options.PanicDelay.Value)
+    task.delay(Options.PanicDelay.Value, function()
         if Toggles.Autopanic.Value then
             toggleLerp()
             Toggles.Killaura:SetValue(false)
@@ -2255,7 +2294,6 @@ local modCheck = function(player, leaving)
         end
     end)
 end
-
 
 for _, player in next, Players:GetPlayers() do
     task.spawn(modCheck, player)
@@ -2348,6 +2386,19 @@ end)
 local SwingCheats = Misc:AddRightGroupbox('Swing cheats (can break damage)')
 
 if RequiredServices then
+    local Actions = RequiredServices.Actions
+    local StopSwingOld = Actions.StopSwing
+
+    SwingCheats:AddToggle('Autoswing', { Text = 'Autoswing' }):OnChanged(function(value)
+        if value then
+            Actions.StopSwing = function() end
+            Actions.StartSwing()
+        else
+            Actions.StopSwing = StopSwingOld
+            StopSwingOld()
+        end
+    end)
+
     local AttackRequestOld = RequiredServices.Combat.AttackRequest
     RequiredServices.Combat.AttackRequest = function(...)
         local args = {...}
@@ -2365,9 +2416,9 @@ end
 
 local swingFunction = (function()
     if not getgc then return end
-    for _, Func in next, getgc() do
-        if type(Func) == 'function' and debug.info(Func, 'n') == 'Swing' then
-            return Func
+    for _, func in next, getgc() do
+        if type(func) == 'function' and debug.info(func, 'n') == 'Swing' then
+            return func
         end
     end
 end)()
@@ -2389,27 +2440,17 @@ end
 if RequiredServices then
     SwingCheats:AddSlider('SwingThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
 
-    local DealDamageOld = RequiredServices.Combat.DealDamage
-    RequiredServices.Combat.DealDamage = function(...)
-        local target, attackName = ...
-
+    RequiredServices.Combat.DealDamage = function(target, attackName)
         if Toggles.Killaura.Value or onCooldown[target] then return end
 
-        if Options.SwingThreads.Value == 1 then
-            return DealDamageOld(...)
-        end
-
-        for _ = 2, Options.SwingThreads.Value do
-            Event:FireServer('Combat', RPCKey, { 'Attack', target, attackName, AttackKey })
+        for _ = 1, Options.SwingThreads.Value do
+            dealDamage(target, attackName)
         end
 
         onCooldown[target] = true
-        task.spawn(function()
-            task.wait(Options.SwingThreads.Value * 0.25)
+        task.delay(Options.SwingThreads.Value * 0.25, function()
             onCooldown[target] = nil
         end)
-
-        return DealDamageOld(...)
     end
 end
 
