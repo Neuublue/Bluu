@@ -12,30 +12,34 @@ getgenv().Bluu = true
 --     queue_on_teleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/Swordburst2.lua'))()")
 -- end
 
-local sendWebhook = function(url, body, ping)
-    if typeof(url) ~= 'string' then return end
-    if not string.match(url, '^https://discord') then return end
-    if typeof(body) ~= 'table' then return end
-
-    body.content = ping and '@everyone' or nil
-    body.username = 'Bluu'
-    body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-    body.embeds = body.embeds or {{}}
-    body.embeds[1].timestamp = DateTime:now():ToIsoDate()
-    body.embeds[1].footer = {
-        text = 'Bluu',
-        icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-    }
-
+local sendWebhook = (function()
     local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
+    local HttpService = game:GetService('HttpService')
 
-    http_request({
-        Url = url,
-        Body = game:GetService('HttpService'):JSONEncode(body),
-        Method = 'POST',
-        Headers = { ['content-type'] = 'application/json' }
-    })
-end
+    return function(url, body, ping)
+        assert(typeof(url) == 'string')
+        assert(typeof(body) == 'table')
+        if not string.match(url, '^https://discord') then return end
+
+        body.content = ping and '@everyone' or nil
+        body.username = 'Bluu'
+        body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
+        body.embeds = body.embeds or {{}}
+        body.embeds[1].timestamp = DateTime:now():ToIsoDate()
+        body.embeds[1].footer = {
+            text = 'Bluu',
+            icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
+        }
+
+        http_request({
+            Url = url,
+            Body = HttpService:JSONEncode(body),
+            Method = 'POST',
+            Headers = { ['content-type'] = 'application/json' }
+        })
+    end
+end)()
+
 
 local sendTestMessage = function(url)
     sendWebhook(
@@ -50,7 +54,11 @@ local sendTestMessage = function(url)
 end
 
 local Players = game:GetService('Players')
-local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal('LocalPlayer'):Wait() or Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    Players:GetPropertyChangedSignal('LocalPlayer'):Wait()
+    LocalPlayer = Players.LocalPlayer
+end
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild('Humanoid')
 local HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
@@ -58,9 +66,15 @@ local HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
 local Entity = Character:WaitForChild('Entity')
 local Stamina = Entity:WaitForChild('Stamina')
 
-local Camera = workspace.CurrentCamera or workspace:GetPropertyChangedSignal('CurrentCamera'):Wait() or workspace.CurrentCamera
+local Camera = workspace.CurrentCamera
+if not Camera then
+    workspace:GetPropertyChangedSignal('CurrentCamera'):Wait()
+    Camera = workspace.CurrentCamera
+end
 
-local Profiles = game:GetService('ReplicatedStorage'):WaitForChild('Profiles')
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
+
+local Profiles = ReplicatedStorage:WaitForChild('Profiles')
 local Profile = Profiles:WaitForChild(LocalPlayer.Name)
 
 local Inventory = Profile:WaitForChild('Inventory')
@@ -73,12 +87,12 @@ local getLevel = function(value)
 end
 local Vel = Exp.Parent:WaitForChild('Vel')
 
-local Database = game:GetService('ReplicatedStorage'):WaitForChild('Database')
+local Database = ReplicatedStorage:WaitForChild('Database')
 local Items = Database:WaitForChild('Items')
 local Skills = Database:WaitForChild('Skills')
 
-local Event = game:GetService('ReplicatedStorage'):WaitForChild('Event')
-local Function = game:GetService('ReplicatedStorage'):WaitForChild('Function')
+local Event = ReplicatedStorage:WaitForChild('Event')
+local Function = ReplicatedStorage:WaitForChild('Function')
 local InvokeFunction = function(...)
     local args = {...}
     local success, result
@@ -126,7 +140,7 @@ end
 local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/Library.lua'))()
 
 local Window = Library:CreateWindow({
-    Title = 'Bluu 🎄 Swordburst 2',
+    Title = 'Bluu 😳 Swordburst 2',
     Center = true,
     AutoShow = true,
     Resizable = true,
@@ -253,15 +267,16 @@ local onHumanoidAdded = function()
     Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
     HumanoidRootPart:GetPropertyChangedSignal('Anchored'):Connect(function()
-        if not HumanoidRootPart.Anchored then return end
-        HumanoidRootPart.Anchored = false
+        if HumanoidRootPart.Anchored then
+            HumanoidRootPart.Anchored = false
+        end
     end)
 
     linearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
 
     task.spawn(InvokeFunction, 'Equipment', {
         'Wear', {
-            Name = 'Black Novice Armor',
+            Name = 'Blue Novice Armor',
             Value = Equip.Clothing.Value
         }
     })
@@ -512,8 +527,8 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
                 verticalOffset = minYOffset
                 horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
             else
-                local root = math.sqrt(boundingRadius ^ 2 - horizontalOffset ^ 2)
-                verticalOffset = math.max(-(root == root and root or 0), minYOffset)
+                local root = -math.sqrt(boundingRadius ^ 2 - horizontalOffset ^ 2)
+                verticalOffset = math.max(root == root and root or 0, minYOffset)
             end
         elseif horizontalOffset == Options.AutofarmHorizontalOffset.Max then
             horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
@@ -1260,6 +1275,15 @@ local attack = function(target)
     end)
 end
 
+local swingFunction = (function()
+    if not getgc then return end
+    for _, func in next, getgc() do
+        if type(func) == 'function' and debug.info(func, 'n') == 'Swing' then
+            return func
+        end
+    end
+end)()
+
 Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
     toggleSwingDamage(false)
     while Toggles.Killaura.Value do
@@ -1315,8 +1339,17 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             end
         end
 
-        if RequiredServices then
-            task.spawn(RequiredServices.Actions[next(onCooldown) and 'StartSwing' or 'StopSwing'])
+        if swingFunction then
+            -- this is preferred since it ignores the swininging state
+            if next(onCooldown) then
+                task.spawn(swingFunction)
+            end
+        elseif RequiredServices then
+            if next(onCooldown) then
+                task.spawn(RequiredServices.Actions.StartSwing)
+            else
+                task.spawn(RequiredServices.Actions.StopSwing)
+            end
         end
     end
     toggleSwingDamage(true)
@@ -2413,15 +2446,6 @@ if RequiredServices then
 
     SwingCheats:AddDivider()
 end
-
-local swingFunction = (function()
-    if not getgc then return end
-    for _, func in next, getgc() do
-        if type(func) == 'function' and debug.info(func, 'n') == 'Swing' then
-            return func
-        end
-    end
-end)()
 
 if swingFunction then
     SwingCheats:AddSlider('SwingDelay', { Text = 'Swing delay', Default = 0.55, Min = 0.25, Max = 0.85, Rounding = 2, Suffix = 's' })
