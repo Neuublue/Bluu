@@ -598,8 +598,10 @@ end)
 local mobList = (function()
     if RequiredServices then
         local mobList = {}
-        local MobDataCache = RequiredServices.StatsUI.MobDataCache
-        for mobName, _ in next, MobDataCache do
+        local success, MobDataCache = pcall(function()
+            return RequiredServices.StatsUI.MobDataCache
+        end)
+        for mobName, _ in next, MobDataCache or {} do
             table.insert(mobList, mobName)
         end
         table.sort(mobList, function(mobName1, mobName2)
@@ -1340,7 +1342,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
         end
 
         if swingFunction then
-            -- this is preferred since it ignores the swininging state
+            -- this is preferred since it ignores the swinging state
             if next(onCooldown) then
                 task.spawn(swingFunction)
             end
