@@ -132,13 +132,15 @@ end)()
 
 if RequiredServices then
     local Services = (function()
-        if not (getloadedmodules or getnilinstances) then return end
-        for _, MainModule in next, (getloadedmodules or getnilinstances)() do
+        local func = getloadedmodules or getnilinstances
+        if not func then return end
+        for _, MainModule in next, func() do
             if MainModule.Name == 'MainModule' then
                 return MainModule.Services
             end
         end
     end)()
+
     RequiredServices.InventoryUI = require(Services.UI.Inventory)
     RequiredServices.StatsUI = require(Services.UI.Stats)
     RequiredServices.TradeUI = require(Services.UI.Trade)
@@ -603,6 +605,21 @@ Autofarm:AddToggle('UseWaypoint', { Text = 'Use waypoint' }):OnChanged(function(
 end)
 
 local mobList = (function()
+    if RequiredServices then
+        local mobList = {}
+        local MobDataCache = RequiredServices.StatsUI.MobDataCache
+        if type(MobDataCache) ~= 'table' then
+            MobDataCache = {}
+        end
+        for mobName, _ in next, MobDataCache do
+            table.insert(mobList, mobName)
+        end
+        table.sort(mobList, function(mobName1, mobName2)
+            return MobDataCache[mobName1].HealthValue > MobDataCache[mobName2].HealthValue
+        end)
+        return mobList
+    end
+
     return ({
         [540240728] = { -- Arcadia
             'Tremor',
