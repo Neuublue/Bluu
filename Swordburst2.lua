@@ -598,10 +598,11 @@ end)
 local mobList = (function()
     if RequiredServices then
         local mobList = {}
-        local success, MobDataCache = pcall(function()
-            return RequiredServices.StatsUI.MobDataCache
-        end)
-        for mobName, _ in next, MobDataCache or {} do
+        local MobDataCache = RequiredServices.StatsUI.MobDataCache
+        if type(MobDataCache) ~= 'table' then
+            MobDataCache = {}
+        end
+        for mobName, _ in next, MobDataCache do
             table.insert(mobList, mobName)
         end
         table.sort(mobList, function(mobName1, mobName2)
