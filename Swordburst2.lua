@@ -121,30 +121,25 @@ LocalPlayer.Idled:Connect(function()
     game:GetService('VirtualUser'):ClickButton2(Vector2.new())
 end)
 
-local RequiredServices = (function()
-    if not getreg then return end
-    for _, Table in next, getreg() do
-        if type(Table) == 'table' and rawget(Table, 'Services') then
-            return Table.Services
+local MainModule = (function()
+    local func = getloadedmodules or getnilinstances
+    if not func then return end
+    for _, instance in next, func() do
+        if instance.Name == 'MainModule' then
+            return instance
         end
     end
 end)()
 
-if RequiredServices then
-    local Services = (function()
-        local func = getloadedmodules or getnilinstances
-        if not func then return end
-        for _, MainModule in next, func() do
-            if MainModule.Name == 'MainModule' then
-                return MainModule.Services
-            end
-        end
-    end)()
-
-    RequiredServices.InventoryUI = require(Services.UI.Inventory)
-    RequiredServices.StatsUI = require(Services.UI.Stats)
-    RequiredServices.TradeUI = require(Services.UI.Trade)
-end
+local RequiredServices = (function()
+    if not MainModule then return end
+    local RequiredServices = require(MainModule).Services
+    local UI = MainModule.Services.UI
+    RequiredServices.InventoryUI = require(UI.Inventory)
+    RequiredServices.StatsUI = require(UI.Stats)
+    RequiredServices.TradeUI = require(UI.Trade)
+    return RequiredServices
+end)()
 
 local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/Library.lua'))()
 
