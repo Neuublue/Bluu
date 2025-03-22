@@ -122,11 +122,12 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 local MainModule = (function()
-    local func = getloadedmodules or getnilinstances
-    if not func then return end
-    for _, instance in next, func() do
-        if instance.Name == 'MainModule' then
-            return instance
+    if identifyexecutor() == 'Xeno' then return end
+    for _, func in next, { getnilinstances, getloadedmodules } do
+        for _, instance in next, func and func() or {} do
+            if instance.Name == 'MainModule' then
+                return instance
+            end
         end
     end
 end)()
