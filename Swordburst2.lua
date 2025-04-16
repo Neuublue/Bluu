@@ -123,7 +123,8 @@ end)
 
 local MainModule = (function()
     for _, func in next, { getloadedmodules, getnilinstances } do
-        for _, instance in next, func and func() or {} do
+        if type(func) ~= 'function' then continue end
+        for _, instance in next, select(2, pcall(func)) do
             if instance.Name == 'MainModule' and instance:FindFirstChild('Services') then
                 return instance
             end
@@ -154,6 +155,9 @@ if not (success and RequiredServices) then
             return object.Services
         end
     end)
+    if not success then
+        RequiredServices = nil
+    end
 end
 
 local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/Library.lua'))()
