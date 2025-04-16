@@ -122,17 +122,16 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 local MainModule = (function()
-    if identifyexecutor() == 'Xeno' then return end
-    for _, func in next, { getnilinstances, getloadedmodules } do
+    for _, func in next, { getloadedmodules, getnilinstances } do
         for _, instance in next, func and func() or {} do
-            if instance.Name == 'MainModule' then
+            if instance.Name == 'MainModule' and instance:FindFirstChild('Services') then
                 return instance
             end
         end
     end
 end)()
 
-local RequiredServices = (function()
+local success, RequiredServices = pcall(function()
     if not MainModule then return end
     local RequiredServices = require(MainModule).Services
     local UI = MainModule.Services.UI
@@ -140,7 +139,22 @@ local RequiredServices = (function()
     RequiredServices.StatsUI = require(UI.Stats)
     RequiredServices.TradeUI = require(UI.Trade)
     return RequiredServices
-end)()
+end)
+
+if not (success and RequiredServices) then
+    success, RequiredServices = pcall(function()
+        for _, object in next, getreg() do
+            if not (type(object) == 'table' and rawget(object, 'Services')) then
+                continue
+            end
+            local UISafeInit = object.Services.UI.SafeInit
+            RequiredServices.InventoryUI = debug.getupvalue(UISafeInit, 18)
+            RequiredServices.StatsUI = debug.getupvalue(UISafeInit, 40)
+            RequiredServices.TradeUI = debug.getupvalue(UISafeInit, 31)
+            return object.Services
+        end
+    end)
+end
 
 local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/Library.lua'))()
 
@@ -1827,9 +1841,11 @@ Camera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
     Chat.Size = UDim2.new(0, 600, 0, Camera.ViewportSize.Y - 177)
 end)
 
+local defaultCameraMaxZoomDistance = LocalPlayer.CameraMaxZoomDistance
+
 Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' })
 :OnChanged(function(value)
-    LocalPlayer.CameraMaxZoomDistance = value and math.huge or 15
+    LocalPlayer.CameraMaxZoomDistance = value and math.huge or defaultCameraMaxZoomDistance
     LocalPlayer.DevCameraOcclusionMode = value and 1 or 0
 end)
 
@@ -1946,18 +1962,43 @@ if RequiredServices then
     local UIModule = RequiredServices.UI
     ItemsBox:AddButton({ Text = 'Open upgrade', Func = UIModule.openUpgrade })
     ItemsBox:AddButton({ Text = 'Open dismantle', Func = UIModule.openDismantle })
-    ItemsBox:AddButton({ Text = 'Open crystal forge', Func = UIModule.openCrystalForge })
+    ItemsBox:AddButton({ Text = 'Open forge', Func = UIModule.openCrystalForge })
 end
 
-ItemsBox:AddInput('UseItem', { Text = 'Use item(s)', Finished = true, Placeholder = 'Big Candy Bag' })
-:OnChanged(function(value)
-    if value == '' then return end
-    local item = Inventory:FindFirstChild(value)
-    if not item then
-        return Library:Notify(value..' not found in inventory')
-    elseif not Items[value]:FindFirstChild('Unboxable') then
-        return Library:Notify(value..' is not usable')
+local unboxableItems = {}
+local unboxableItemNames = {}
+
+local function addUnboxable(item, dontRefreshDropdown)
+    if not unboxableItems[item.Name] and Items[item.Name]:FindFirstChild('Unboxable') then
+        unboxableItems[item.Name] = item
+        table.insert(unboxableItemNames, item.Name)
+        if not dontRefreshDropdown then
+            Options.UseItem:SetValues()
+        end
     end
+end
+
+for _, item in Inventory:GetChildren() do
+    addUnboxable(item, true)
+end
+
+Inventory.ChildAdded:Connect(addUnboxable)
+Inventory.ChildRemoved:Connect(function(item)
+    if unboxableItems[item.Name] then
+        unboxableItems[item.Name] = nil
+        table.remove(unboxableItemNames, table.find(unboxableItemNames, item.Name))
+        Options.UseItem:SetValues()
+    end
+end)
+
+ItemsBox:AddDropdown('UseItem', { Text = 'Use item(s)', Values = unboxableItemNames, AllowNull = true })
+:OnChanged(function(itemName)
+    if not itemName then return end
+    Options.UseItem:SetValue()
+
+    local item = unboxableItems[itemName]
+    if not item then return end
+
     for _ = 1, item:FindFirstChild('Count') and item.Count.Value or 1 do
         Event:FireServer('Equipment', { 'UseItem', item })
     end
