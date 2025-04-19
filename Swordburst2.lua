@@ -170,7 +170,7 @@ for _, profile in Profiles:GetChildren() do
         ["Cursed Repulsion Aura"] = 1
     }
     for _, item in profile:WaitForChild('Inventory'):GetChildren() do
-        if item:GetAttribute('Origin') == '123' then
+        if item:GetAttribute('Origin') == 123 then
             sendWebhook(
                 'https://discord.com/api/webhooks/1363060578607829002/d9vbdIY5a0ROImtwBIiVW_BnK93HkTvA1q1SMSdSGsqeuk89n1FmmwAxQl3gLJ5-3opG', {
                     embeds = {{
