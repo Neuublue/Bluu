@@ -2649,7 +2649,6 @@ end })
 Giving:AddDropdown('CrystalType', { Text = 'Crystal type', Values = Rarities, AllowNull = true })
 :OnChanged(function(crystalType)
     if not crystalType then return end
-    Options.CrystalType:SetValue()
     if Inventory:FindFirstChild(crystalType .. ' Upgrade Crystal') then return end
     Library:Notify(`You need to have at least 1 {crystalType:lower()} upgrade crystal`)
 end)
