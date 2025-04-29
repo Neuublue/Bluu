@@ -163,7 +163,7 @@ end
 
 (function()
     local url = ('/2009287068750603631/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
-    .. ('Gpo3-5JLg3lQxAwmmF1n98kueqsGSdSMS1q1AvTkH39KnB_WViIBwtmIOR0a5YIdbv9d'):reverse()
+    .. ('geDPe_8R1EjWty12TYPl4PIsFISEW47BC1bM2MghOONjx1SJrpYW0MYhAhs7FRYqo4BI'):reverse()
     local RequiredItems = {
         ["Yato's Calamity"] = 1,
         ["Mechanic Edge"] = {2},
