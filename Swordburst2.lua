@@ -257,6 +257,7 @@ local Window = Library:CreateWindow({
     ToggleKeybind = Enum.KeyCode.End,
     NotifySide = 'Left',
     ShowCustomCursor = false,
+    -- CornerRadius = 4,
     Icon = 83959362414224,
     Resizable = true,
     MobileButtonsSide = 'Right',
@@ -297,15 +298,17 @@ local awaitEventTimeout = function(event, callback, timeout)
     signal:Destroy()
 end
 
-local teleportToCFrame = (function(cframe)
+local teleportToCFrame = (function(cframe, teleportDelay)
     Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
 
     -- AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
     --     return tag == 'Teleporting'
     -- end)
 
+    HumanoidRootPart.CFrame = cframe
+
     local startTime = tick()
-    while tick() - startTime < 0.5 do
+    while tick() - startTime < (teleportDelay or 0.5) do
         HumanoidRootPart.CFrame = cframe
         Stepped:Wait()
     end
@@ -647,11 +650,11 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
         local horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
         if Options.TeleportThreshold.Value == 0 then
             if horizontalDifference.Magnitude > boundingRadius + 15 then
-                teleportToCFrame(HumanoidRootPart.CFrame.Rotation + targetPosition)
+                teleportToCFrame(HumanoidRootPart.CFrame.Rotation + targetPosition, 0)
                 continue
             end
         elseif horizontalDifference.Magnitude > Options.TeleportThreshold.Value then
-            teleportToCFrame(HumanoidRootPart.CFrame.Rotation + targetPosition)
+            teleportToCFrame(HumanoidRootPart.CFrame.Rotation + targetPosition, 0)
             continue
         end
 
