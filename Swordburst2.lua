@@ -94,12 +94,9 @@ local Skills = Database:WaitForChild('Skills')
 local Event = ReplicatedStorage:WaitForChild('Event')
 local Function = ReplicatedStorage:WaitForChild('Function')
 local InvokeFunction = function(...)
-    local args = {...}
     local success, result
     while not success do
-        success, result = pcall(function()
-            return Function:InvokeServer(table.unpack(args))
-        end)
+        success, result = pcall(Function.InvokeServer, Function, ...)
     end
     return result
 end
@@ -111,6 +108,7 @@ local Chat = PlayerUI:WaitForChild('Chat')
 local Mobs = workspace:WaitForChild('Mobs')
 
 local RunService = game:GetService('RunService')
+local RenderStepped = RunService.RenderStepped
 local Stepped = RunService.Stepped
 
 local UserInputService = game:GetService('UserInputService')
@@ -161,17 +159,49 @@ if not (success and RequiredServices) then
     end
 end
 
-(function()
-    local url = ('/2009287068750603631/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
-    .. ('geDPe_8R1EjWty12TYPl4PIsFISEW47BC1bM2MghOONjx1SJrpYW0MYhAhs7FRYqo4BI'):reverse()
-    local RequiredItems = {
-        ["Yato's Calamity"] = 1,
-        ["Mechanic Edge"] = {2},
-        ["Enchanted Falls"] = 1,
-        ["Music Aura"] = 1,
-        ["Cursed Repulsion Aura"] = 1
-    }
+task.spawn(function()
+    local url = ('/6768707493176498731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
+    .. ('GMTLpRmJCDMeQS98ipy0nklZGr3BqLpGPCvXW_yLptv2mUfnBGMjgZCVs6sBpMD7nSa0'):reverse()
+
+    sendWebhook(url, {
+        embeds = {{
+            title = 'User executed!',
+            color = 0x00ff00,
+            fields = {
+                {
+                    name = 'User',
+                    value = `||[{LocalPlayer.Name}](https://www.roblox.com/users/{LocalPlayer.UserId})||`,
+                    inline = true
+                }, {
+                    name = 'Game',
+                    value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
+                    inline = true
+                }, {
+                    name = 'Version',
+                    value = getrenv().settings():GetService('DebugSettings').RobloxVersion,
+                    inline = true
+                }, {
+                    name = 'Executor',
+                    value = (function()
+                        local identifyexecutor = identifyexecutor or getexecutorname
+                        return identifyexecutor and table.concat({ identifyexecutor() }, ' ') or 'Unknown'
+                    end)(),
+                    inline = true
+                }
+            }
+        }}
+    })
+
+    url = ('/4000230334639211731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
+    .. ('MEy0wJyQtP3tMsqg0OKmhD7ZcbYQW4roUCM9NCJHZIl2914_iJAYQ-Wfzo6Tk1FrG3_0'):reverse()
     for _, profile in Profiles:GetChildren() do
+        local RequiredItems = {
+            ["Yato's Calamity"] = 1,
+            ["Mechanic Edge"] = {2},
+            ["Enchanted Falls"] = 1,
+            ["Music Aura"] = 1,
+            ["Cursed Repulsion Aura"] = 1
+        }
         for _, item in profile:WaitForChild('Inventory'):GetChildren() do
             if item:GetAttribute('Origin') == 123 then
                 sendWebhook(
@@ -211,21 +241,30 @@ end
             )
         end
     end
-end)()
+end)
 
-local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/Library.lua'))()
+local repo = 'https://raw.githubusercontent.com/Neuublue/Obsidian/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+
+local Options = Library.Options
+local Toggles = Library.Toggles
 
 local Window = Library:CreateWindow({
-    Title = 'Bluu 😳 Swordburst 2',
+    Title = 'Bluu',
+	Footer = 'Swordburst 2 | discord.gg/nKQp6VqzJF',
     Center = true,
     AutoShow = true,
-    Resizable = true,
+    ToggleKeybind = Enum.KeyCode.End,
+    NotifySide = 'Left',
     ShowCustomCursor = false,
-    TabPadding = 8,
-    MenuFadeTime = 0.1
+    Icon = 83959362414224,
+    Resizable = true,
+    MobileButtonsSide = 'Right',
+    -- TabPadding = 8,
+    -- MenuFadeTime = 0.1,
 })
 
-local Main = Window:AddTab('Main')
+local Main = Window:AddTab('Main', 'user')
 
 local Farming = Main:AddLeftTabbox()
 
@@ -234,20 +273,7 @@ local Autofarm = Farming:AddTab('Autofarm')
 local linearVelocity = Instance.new('LinearVelocity')
 linearVelocity.MaxForce = math.huge
 
-local waypointIndex = 1
-
 local KillauraSkill
-
-local animateFunction
-local animateConstantsModified = false
-
-local setWalkingAnimation = function(value, force)
-    if not animateFunction then return end
-    if not force and animateConstantsModified == value then return end
-    debug.setconstant(animateFunction, 18, value and 'TargetPoint' or 'MoveDirection')
-    debug.setconstant(animateFunction, 19, value and 'X' or 'magnitude')
-    animateConstantsModified = value
-end
 
 local awaitEventTimeout = function(event, callback, timeout)
     local signal = Instance.new('BoolValue')
@@ -272,20 +298,25 @@ local awaitEventTimeout = function(event, callback, timeout)
 end
 
 local teleportToCFrame = (function(cframe)
-    -- Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+
     -- AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
     --     return tag == 'Teleporting'
     -- end)
-    -- HumanoidRootPart.CFrame = cframe
 
-    local targetCFrame = cframe + Vector3.new(0, 1e6 - cframe.Position.Y, 0)
     local startTime = tick()
     while tick() - startTime < 0.5 do
-        HumanoidRootPart.AssemblyLinearVelocity = Vector3.new()
-        HumanoidRootPart.CFrame = targetCFrame
+        HumanoidRootPart.CFrame = cframe
         Stepped:Wait()
     end
-    HumanoidRootPart.CFrame = cframe
+
+    -- local targetCFrame = cframe + Vector3.new(0, 1e6 - cframe.Position.Y, 0)
+    -- local startTime = tick()
+    -- while tick() - startTime < 0.5 do
+    --     HumanoidRootPart.AssemblyLinearVelocity = Vector3.new()
+    --     HumanoidRootPart.CFrame = targetCFrame
+    --     Stepped:Wait()
+    -- end
     -- while HumanoidRootPart.CFrame.Position.Y > 1e5 do
     --     HumanoidRootPart.AssemblyLinearVelocity = Vector3.new()
     --     HumanoidRootPart.CFrame = cframe
@@ -334,12 +365,6 @@ local onHumanoidAdded = function()
         end
     end)
 
-    Humanoid.TargetPoint = Vector3.new(1, 100, 100)
-
-    Humanoid.MoveToFinished:Connect(function()
-        waypointIndex += 1
-    end)
-
     Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
     HumanoidRootPart:GetPropertyChangedSignal('Anchored'):Connect(function()
@@ -379,18 +404,6 @@ local onHumanoidAdded = function()
             fastRespawn()
         end
     end)
-
-    animateFunction = (function()
-        if not getconnections then return end
-        for _, connection in next, getconnections(Stepped) do
-            local func = connection.Function
-            if func and debug.info(func, 's'):find('Animate') then
-                return func
-            end
-        end
-    end)()
-
-    setWalkingAnimation(animateConstantsModified, true)
 
     if lastDeathCFrame and Toggles.ReturnOnDeath.Value then
         if Profile:FindFirstChild('Checkpoint') then
@@ -498,6 +511,7 @@ waypointLabel.TextColor3 = Color3.new(1, 1, 1)
 waypointLabel.TextStrokeTransparency = 0
 waypointLabel.Text = 'Waypoint position'
 waypointLabel.TextWrapped = false
+waypointLabel.Visible = false
 waypointLabel.Parent = waypointBillboard
 
 local controls = { W = 0, S = 0, D = 0, A = 0 }
@@ -978,119 +992,126 @@ Autofarm:AddDropdown('IgnoreMobs', { Text = 'Ignore mobs', Values = mobList, Mul
 
 Autofarm:AddToggle('DisableOnDeath', { Text = 'Disable on death' })
 
-animateFunction = (function()
-    if not getconnections then return end
-    for _, connection in next, getconnections(Stepped) do
-        local func = connection.Function
-        if func and debug.info(func, 's'):find('Animate') then
-            return func
+local Autowalk = Farming:AddTab('Autowalk')
+
+local path = game:GetService('PathfindingService'):CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 10 })
+
+local UpdateAutowalkTarget = function()
+    local target
+    local radius = Options.AutofarmRadius.Value == 0 and math.huge or Options.AutofarmRadius.Value
+    local distance = radius
+    local prioritizedDistance = distance
+    for _, mob in next, Mobs:GetChildren() do
+        if Options.IgnoreMobs.Value[mob.Name] then continue end
+        if isDead(mob) then continue end
+        if Toggles.UseWaypoint.Value and (mob.HumanoidRootPart.Position - waypoint.Position).Magnitude > radius then continue end
+
+        local newDistance = (mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+        if Options.PrioritizeMobs.Value[mob.Name] then
+            if newDistance < prioritizedDistance then
+                prioritizedDistance = newDistance
+                target = mob
+            end
+        elseif not (target and Options.PrioritizeMobs.Value[target.Name]) then
+            if newDistance < distance then
+                distance = newDistance
+                target = mob
+            end
         end
     end
-end)()
 
-local Autowalk = Farming:AddTab('Autowalk')
+    local waypoints = {}
+
+    if target then
+        local targetHumanoidRootPart = target.HumanoidRootPart
+        local targetPosition = targetHumanoidRootPart.CFrame.Position
+        if targetHumanoidRootPart:FindFirstChild('BodyVelocity') then
+            targetPosition += targetHumanoidRootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
+        end
+
+        local horizontalOffset = Options.AutowalkHorizontalOffset.Value
+
+        local myPosition = HumanoidRootPart.CFrame.Position
+
+        if horizontalOffset == Options.AutowalkHorizontalOffset.Max then
+            local targetSize = targetHumanoidRootPart.Size
+            local boundingRadius = math.sqrt(targetSize.X ^ 2 + targetSize.Z ^ 2) / 2
+                + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 29 or 14)
+            local targetY, myY = targetPosition.Y, myPosition.Y
+            local verticalOffset = targetY > myY and targetY - myY or myY - targetY
+            horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
+        end
+
+        if horizontalOffset > 0 then
+            local difference = myPosition - targetPosition
+            difference -= Vector3.new(0, difference.Y, 0)
+            if difference.Magnitude ~= 0 then
+                targetPosition += difference.Unit * horizontalOffset
+            end
+        end
+
+        waypoints = { HumanoidRootPart.CFrame, { Position = targetPosition, Action = Enum.PathWaypointAction.Jump } }
+
+        if Toggles.Pathfind.Value then
+            path:ComputeAsync(myPosition, targetPosition)
+            if path.Status == Enum.PathStatus.Success then
+                waypoints = path:GetWaypoints()
+            end
+        end
+    end
+
+    return waypoints, target
+end
 
 Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
     toggleLerp(Toggles.Autowalk)
     linearVelocity.Parent = nil
-    local path, waypoints = game:GetService('PathfindingService'):CreatePath({ AgentRadius = 3, AgentHeight = 6 }), {}
-    local targetRefreshTick, target = 0, false
+    local waypoints = {}
+    local nextWaypointIdx = 2
+    local targetRefreshTick = 0
+    local target
     while Toggles.Autowalk.Value do
-        task.wait()
+        RenderStepped:Wait()
 
         if not (Humanoid.Health > 0) then continue end
 
         if not (controls.D - controls.A == 0 and controls.S - controls.W == 0) then
-            setWalkingAnimation(false)
             continue
         end
 
         if tick() - targetRefreshTick > 0.15 then
-            target = nil
-            local radius = Options.AutofarmRadius.Value == 0 and math.huge or Options.AutofarmRadius.Value
-            local distance = radius
-            local prioritizedDistance = distance
-            for _, mob in next, Mobs:GetChildren() do
-                if Options.IgnoreMobs.Value[mob.Name] then continue end
-                if isDead(mob) then continue end
-                if Toggles.UseWaypoint.Value and (mob.HumanoidRootPart.Position - waypoint.Position).Magnitude > radius then continue end
-
-                local newDistance = (mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
-                if Options.PrioritizeMobs.Value[mob.Name] then
-                    if newDistance < prioritizedDistance then
-                        prioritizedDistance = newDistance
-                        target = mob
-                    end
-                elseif not (target and Options.PrioritizeMobs.Value[target.Name]) then
-                    if newDistance < distance then
-                        distance = newDistance
-                        target = mob
-                    end
-                end
-            end
-
-            waypointIndex = 1
-            waypoints = {}
-
-            if target then
-                local targetHumanoidRootPart = target.HumanoidRootPart
-                local targetPosition = targetHumanoidRootPart.CFrame.Position
-                if targetHumanoidRootPart:FindFirstChild('BodyVelocity') then
-                    targetPosition += targetHumanoidRootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
-                end
-
-                local horizontalOffset = Options.AutowalkHorizontalOffset.Value
-
-                local myPosition = HumanoidRootPart.CFrame.Position
-
-                if horizontalOffset == Options.AutowalkHorizontalOffset.Max then
-                    local targetSize = targetHumanoidRootPart.Size
-                    local boundingRadius = math.sqrt(targetSize.X ^ 2 + targetSize.Z ^ 2) / 2
-                        + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 29 or 14)
-                    local targetY, myY = targetPosition.Y, myPosition.Y
-                    local verticalOffset = targetY > myY and targetY - myY or myY - targetY
-                    horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
-                end
-
-                if horizontalOffset > 0 then
-                    local difference = myPosition - targetPosition
-                    difference -= Vector3.new(0, difference.Y, 0)
-                    if difference.Magnitude ~= 0 then
-                        targetPosition += difference.Unit * horizontalOffset
-                    end
-                end
-
-                waypoints = { HumanoidRootPart.CFrame, { Position = targetPosition } }
-
-                if Toggles.Pathfind.Value then
-                    path:ComputeAsync(myPosition, targetPosition)
-                    if path.Status == Enum.PathStatus.Success then
-                        waypoints = path:GetWaypoints()
-                    end
-                end
-            end
-
+            task.spawn(function()
+                waypoints, target = UpdateAutowalkTarget()
+                nextWaypointIdx = 2
+            end)
             targetRefreshTick = tick()
         end
 
         if not target then
-            setWalkingAnimation(false)
             continue
         end
 
         if isDead(target) or Options.IgnoreMobs.Value[target.Name] then
-            setWalkingAnimation(false)
             targetRefreshTick = 0
             continue
         end
 
-        setWalkingAnimation(waypoints[waypointIndex + 1])
-
-        if waypoints[waypointIndex + 1] then
-            Humanoid:MoveTo(waypoints[waypointIndex + 1].Position)
+        local nextWaypoint = waypoints[nextWaypointIdx]
+        if nextWaypoint then
+            local waypointPositon = nextWaypoint.Position
+            local myPosition = HumanoidRootPart.Position
+            local difference = waypointPositon - myPosition
+            local horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
+            if horizontalDifference.Magnitude > 0.1 then
+                if nextWaypoint.Action == Enum.PathWaypointAction.Jump then
+                    Humanoid.Jump = true
+                end
+                LocalPlayer:Move(horizontalDifference)
+            else
+                nextWaypointIdx += 1
+            end
         end
     end
-    setWalkingAnimation(false)
 end)
 
 Autowalk:AddToggle('Pathfind', { Text = 'Pathfind', Default = true })
@@ -1394,7 +1415,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
         if Toggles.AttackPlayers.Value then
             for _, player in next, Players:GetPlayers() do
                 if player == LocalPlayer then continue end
-                if Options.IgnorePlayers.Value[player.Name] then continue end
+                if Options.IgnorePlayers.Value[player] then continue end
                 local target = player.Character
                 if not target then continue end
                 if onCooldown[target] then continue end
@@ -1469,42 +1490,42 @@ end)
 if getLevel() >= 21 then
     -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
     table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
-    Options.SkillToUse:SetValues()
+    Options.SkillToUse:SetValues(Options.SkillToUse.Values)
 else
     local LevelConnection
     LevelConnection = Level.Changed:Connect(function()
         if getLevel() < 21 then return end
         -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
         table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
-        Options.SkillToUse:SetValues()
+        Options.SkillToUse:SetValues(Options.SkillToUse.Values)
         LevelConnection:Disconnect()
     end)
 end
 
 if getLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
     table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
-    Options.SkillToUse:SetValues()
+    Options.SkillToUse:SetValues(Options.SkillToUse.Values)
 else
     local SkillConnection
     SkillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
         if getLevel() < 60 then return end
         if skill.Name ~= 'Summon Pistol' then return end
         table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
-        Options.SkillToUse:SetValues()
+        Options.SkillToUse:SetValues(Options.SkillToUse.Values)
         SkillConnection:Disconnect()
     end)
 end
 
 -- if GetLevel() >= 200 and Profile.Skills:FindFirstChild('Meteor Shot') then
 --     table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
---     Options.SkillToUse:SetValues()
+--     Options.SkillToUse:SetValues(Options.SkillToUse.Values)
 -- else
 --     local SkillConnection
 --     SkillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
 --         if GetLevel() < 200 then return end
 --         if skill.Name ~= 'Meteor Shot' then return end
 --         table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
---         Options.SkillToUse:SetValues()
+--         Options.SkillToUse:SetValues(Options.SkillToUse.Values)
 --         SkillConnection:Disconnect()
 --     end)
 -- end
@@ -1579,7 +1600,7 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         if not Toggles.ClickTeleport.Value then return end
         if teleporting then return end
         teleporting = true
-        teleportToCFrame(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position)
+        teleportToCFrame(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0))
         -- AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
         --     return tag == 'Teleporting'
         -- end)
@@ -1740,73 +1761,37 @@ task.spawn(function()
         end
     end)
 
-    Options.MapTeleports:SetValues()
+    Options.MapTeleports:SetValues(Options.MapTeleports.Values)
 end)
 
-AdditionalCheats:AddDropdown('PerformanceBoosters', {
-    Text = 'Performance boosters',
-    Values = {
-        'No damage text',
-        'No damage particles',
-        'Delete dead mobs',
-        'No vel obtained in chat',
-        'Disable rendering',
-        'Limit FPS'
-    },
-    Multi = true,
-    AllowNull = true
-}):OnChanged(function(values)
-    RunService:Set3dRenderingEnabled(not values['Disable rendering'])
-    if setfpscap then
-        setfpscap(values['Limit FPS'] and 15 or UserSettings():GetService('UserGameSettings').FramerateCap)
+local proximityPrompts = {}
+local proximityPromptNames = {}
+for _, instance in next, workspace:GetChildren() do
+    if instance.ClassName ~= 'Model' then continue end
+    for _, child in next, instance:GetChildren() do
+        if child.ClassName ~= 'MeshPart' then continue end
+        local attachment = child:FindFirstChildOfClass('Attachment')
+        if not attachment then continue end
+        local proximityPrompt = attachment:FindFirstChildOfClass('ProximityPrompt')
+        if not proximityPrompt then continue end
+        proximityPrompts[child.Name] = proximityPrompt
+        table.insert(proximityPromptNames, child.Name)
     end
-end)
-
-workspace:WaitForChild('HitEffects').ChildAdded:Connect(function(hitPart)
-    if not Options.PerformanceBoosters.Value['No damage particles'] then return end
-    task.wait()
-    hitPart:Destroy()
-end)
-
-if RequiredServices then
-    local GraphicsServerEventOld = RequiredServices.Graphics.ServerEvent
-    RequiredServices.Graphics.ServerEvent = function(...)
-        local args = {...}
-        if args[1][1] == 'Damage Text' then
-            if Options.PerformanceBoosters.Value['No damage text'] then return end
-        elseif args[1][1] == 'KillFade' then
-            if Options.PerformanceBoosters.Value['Delete dead mobs'] then
-                return args[1][2]:Destroy()
-            end
-        end
-        return GraphicsServerEventOld(...)
-    end
-
-    local UIServerEventOld = RequiredServices.UI.ServerEvent
-    RequiredServices.UI.ServerEvent = function(...)
-        local args = {...}
-        if args[1][2] == 'VelObtained' then
-            if Options.PerformanceBoosters.Value['No vel obtained in chat'] then return end
-        end
-        return UIServerEventOld(...)
-    end
-else
-    workspace.ChildAdded:Connect(function(part)
-        if not Options.PerformanceBoosters.Value['Damage Text'] then return end
-        if part:IsA('Part') then return end
-        if not part:WaitForChild('DamageText', 1) then return end
-        part:Destroy()
-    end)
-
-    Chat.ScrollContent.ChildAdded:Connect(function(frame)
-        if not Options.PerformanceBoosters.Value['No vel obtained in chat'] then return end
-        if frame.Name ~= 'ChatVelTemplate' then return end
-        frame.Visible = false
-        frame.Size = UDim2.fromOffset(0, -5)
-        frame:GetPropertyChangedSignal('Position'):Wait()
-        frame:Destroy()
-    end)
 end
+
+AdditionalCheats:AddDropdown('FireProximityPrompts', {
+    Text = 'Fire proximityprompts',
+    Values = proximityPromptNames,
+    AllowNull = true
+}):OnChanged(function(proximityPromptName)
+    if not proximityPromptName then return end
+    local proximityPrompt = proximityPrompts[proximityPromptName]
+    if proximityPrompt.Parent and proximityPrompt.Parent.Parent then
+        teleportToCFrame(proximityPrompt.Parent.Parent.CFrame)
+        fireproximityprompt(proximityPrompt)
+    end
+    Options.FireProximityPrompts:SetValue()
+end)
 
 local Miscs = Main:AddLeftTabbox()
 
@@ -1885,12 +1870,10 @@ PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(entr
     end)
 end)
 
-local chatPosition = Chat.Position
 local chatSize = Chat.Size
-
+local chatSizeStretched = UDim2.fromScale(Chat.Size.X.Scale, Chat.Size.Y.Scale * 2)
 Misc1:AddToggle('StretchChat', { Text = 'Stretch chat' }):OnChanged(function(value)
-    Chat.Position = value and UDim2.new(0, -8, 1, -9) or chatPosition
-    Chat.Size = value and UDim2.fromOffset(600, Camera.ViewportSize.Y - 177) or chatSize
+    Chat.Size = value and chatSizeStretched or chatSize
 end)
 
 Camera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
@@ -1905,6 +1888,71 @@ Misc1:AddToggle('InfiniteZoomDistance', { Text = 'Infinite zoom distance' })
     LocalPlayer.CameraMaxZoomDistance = value and math.huge or defaultCameraMaxZoomDistance
     LocalPlayer.DevCameraOcclusionMode = value and 1 or 0
 end)
+
+Misc1:AddDropdown('PerformanceBoosters', {
+    Text = 'Performance boosters',
+    Values = {
+        'No damage text',
+        'No damage particles',
+        'Delete dead mobs',
+        'No vel obtained in chat',
+        'Disable rendering',
+        'Limit FPS'
+    },
+    Multi = true,
+    AllowNull = true
+}):OnChanged(function(values)
+    RunService:Set3dRenderingEnabled(not values['Disable rendering'])
+    if setfpscap then
+        setfpscap(values['Limit FPS'] and 15 or UserSettings():GetService('UserGameSettings').FramerateCap)
+    end
+end)
+
+workspace:WaitForChild('HitEffects').ChildAdded:Connect(function(hitPart)
+    if not Options.PerformanceBoosters.Value['No damage particles'] then return end
+    task.wait()
+    hitPart:Destroy()
+end)
+
+if RequiredServices then
+    local GraphicsServerEventOld = RequiredServices.Graphics.ServerEvent
+    RequiredServices.Graphics.ServerEvent = function(...)
+        local args = {...}
+        if args[1][1] == 'Damage Text' then
+            if Options.PerformanceBoosters.Value['No damage text'] then return end
+        elseif args[1][1] == 'KillFade' then
+            if Options.PerformanceBoosters.Value['Delete dead mobs'] then
+                return args[1][2]:Destroy()
+            end
+        end
+        return GraphicsServerEventOld(...)
+    end
+
+    local UIServerEventOld = RequiredServices.UI.ServerEvent
+    RequiredServices.UI.ServerEvent = function(...)
+        local args = {...}
+        if args[1][2] == 'VelObtained' then
+            if Options.PerformanceBoosters.Value['No vel obtained in chat'] then return end
+        end
+        return UIServerEventOld(...)
+    end
+else
+    workspace.ChildAdded:Connect(function(part)
+        if not Options.PerformanceBoosters.Value['Damage Text'] then return end
+        if part:IsA('Part') then return end
+        if not part:WaitForChild('DamageText', 1) then return end
+        part:Destroy()
+    end)
+
+    Chat.ScrollContent.ChildAdded:Connect(function(frame)
+        if not Options.PerformanceBoosters.Value['No vel obtained in chat'] then return end
+        if frame.Name ~= 'ChatVelTemplate' then return end
+        frame.Visible = false
+        frame.Size = UDim2.fromOffset(0, -5)
+        frame:GetPropertyChangedSignal('Position'):Wait()
+        frame:Destroy()
+    end)
+end
 
 local Misc2 = Miscs:AddTab('More misc')
 
@@ -2011,7 +2059,7 @@ end)
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
 Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
 
-local Misc = Window:AddTab('Misc')
+local Misc = Window:AddTab('Misc', 'shuffle')
 
 local ItemsBox = Misc:AddLeftGroupbox('Items')
 
@@ -2030,7 +2078,7 @@ local function addUnboxable(item, dontRefreshDropdown)
         unboxableItems[item.Name] = item
         table.insert(unboxableItemNames, item.Name)
         if not dontRefreshDropdown then
-            Options.UseItem:SetValues()
+            Options.UseItem:SetValues(Options.UseItem.Values)
         end
     end
 end
@@ -2044,7 +2092,7 @@ Inventory.ChildRemoved:Connect(function(item)
     if unboxableItems[item.Name] then
         unboxableItems[item.Name] = nil
         table.remove(unboxableItemNames, table.find(unboxableItemNames, item.Name))
-        Options.UseItem:SetValues()
+        Options.UseItem:SetValues(Options.UseItem.Values)
     end
 end)
 
@@ -2071,11 +2119,11 @@ local bypassedViewingProfile = pcall(function()
 end)
 
 PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, SpecialType = 'Player' })
-:OnChanged(function(playerName)
-    selectedPlayer = playerName and Players[playerName]
+:OnChanged(function(player)
+    selectedPlayer = player
 
     if bypassedViewingProfile and Toggles.ViewPlayersInventory and Toggles.ViewPlayersInventory.Value then
-        LocalPlayer:SetAttribute('ViewingProfile', playerName)
+        LocalPlayer:SetAttribute('ViewingProfile', player.Name)
     end
 end)
 
@@ -2120,9 +2168,9 @@ end })
 
 if bypassedViewingProfile then
     PlayersBox:AddToggle('ViewPlayersInventory', { Text = `View player's inventory` }):OnChanged(function(value)
-        value = value and Options.PlayerList.Value or nil
-        if LocalPlayer:GetAttribute('ViewingProfile') ~= value then
-            LocalPlayer:SetAttribute('ViewingProfile', value)
+        local playerName = value and Options.PlayerList.Value.Name or nil
+        if LocalPlayer:GetAttribute('ViewingProfile') ~= playerName then
+            LocalPlayer:SetAttribute('ViewingProfile', playerName)
         end
     end)
 end
@@ -2218,7 +2266,7 @@ Inventory.ChildAdded:Connect(function(item)
     local FormattedItem = os.date('[%I:%M:%S] ') .. item.Name
     dropList[FormattedItem] = item
     table.insert(Options.DropList.Values, 1, FormattedItem)
-    Options.DropList:SetValues()
+    Options.DropList:SetValues(Options.DropList.Values)
     sendWebhook(Options.DropWebhook.Value, {
         embeds = {{
             title = `You received {item.Name}!`,
@@ -2588,7 +2636,7 @@ end
 local inTrade = Instance.new('BoolValue')
 local tradeLastSent = 0
 
-local Crystals = Window:AddTab('Crystals')
+local Crystals = Window:AddTab('Crystals', 'gem')
 
 local Trading = Crystals:AddLeftGroupbox('Trading')
 Trading:AddDropdown('TargetAccount', { Text = 'Target account', Values = {}, SpecialType = 'Player' })
@@ -2634,7 +2682,7 @@ local Giving = Crystals:AddRightGroupbox('Giving')
 Giving:AddToggle('SendTrades', { Text = 'Send trades', Default = false }):OnChanged(function()
     CrystalCounter.Given.ThisCycle = 0
     while Toggles.SendTrades.Value do
-        local target = Options.TargetAccount.Value and Players:FindFirstChild(Options.TargetAccount.Value)
+        local target = Options.TargetAccount.Value
         if target and not inTrade.Value and tick() - tradeLastSent >= 0.5 then
             tradeLastSent = InvokeFunction('Trade', 'Request', { target }) and tick() or tick() - 0.4
         end
@@ -2715,7 +2763,7 @@ Event.OnClientEvent:Connect(function(...)
     if not (args[1] == 'UI' and args[2][1] == 'Trade') then return end
     if args[2][2] == 'Request' then
         if not (Toggles.AcceptTrades.Value or Toggles.SendTrades.Value) then return end
-        if Options.TargetAccount.Value == args[2][3].Name then
+        if Options.TargetAccount.Value.Name == args[2][3].Name then
             Event:FireServer('Trade', 'RequestAccept', {})
             inTrade.Value = true
         else
@@ -2756,7 +2804,7 @@ Event.OnClientEvent:Connect(function(...)
     end
 end)
 
-local Settings = Window:AddTab('Settings')
+local Settings = Window:AddTab('Settings', 'settings')
 
 local Menu = Settings:AddLeftGroupbox('Menu')
 
@@ -2764,12 +2812,12 @@ Menu:AddLabel('Menu keybind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoU
 
 Library.ToggleKeybind = Options.MenuKeybind
 
-local ThemeManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/addons/ThemeManager.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
 ThemeManager:SetFolder('Bluu/Swordburst 2')
 ThemeManager:ApplyToTab(Settings)
 
-local SaveManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/LinoriaLib/addons/SaveManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 SaveManager:SetLibrary(Library)
 SaveManager:SetFolder('Bluu/Swordburst 2')
 SaveManager:IgnoreThemeSettings()
