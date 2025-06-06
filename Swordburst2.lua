@@ -7,10 +7,14 @@ if game.GameId ~= 212154879 then return end -- Swordburst 2
 if getgenv().Bluu then return end
 getgenv().Bluu = true
 
--- local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
--- if queue_on_teleport then
---     queue_on_teleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/Swordburst2.lua'))()")
--- end
+local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
+if queue_on_teleport then
+    queue_on_teleport([[
+        if isfile('Bluu/Swordburst 2/autoexec') and readfile('Bluu/Swordburst 2/autoexec') == 'true' then
+            loadstring(game:HttpGet('https://raw.githubusercontent.com/Neuublue/Bluu/main/Swordburst2.lua'))()
+        end
+    ]])
+end
 
 local sendWebhook = (function()
     local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
@@ -258,7 +262,7 @@ local Window = Library:CreateWindow({
     NotifySide = 'Left',
     ShowCustomCursor = false,
     -- CornerRadius = 4,
-    Icon = 83959362414224,
+    -- Icon = 83959362414224,
     Resizable = true,
     MobileButtonsSide = 'Right',
     -- TabPadding = 8,
@@ -2809,11 +2813,17 @@ end)
 
 local Settings = Window:AddTab('Settings', 'settings')
 
-local Menu = Settings:AddLeftGroupbox('Menu')
+local Menu = Settings:AddLeftGroupbox('Menu', 'menu')
 
 Menu:AddLabel('Menu keybind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true })
 
 Library.ToggleKeybind = Options.MenuKeybind
+
+Menu:AddToggle('Autoexecute', { Text = 'Autoexecute', Default = false }):OnChanged(function(value)
+    writefile('Bluu/Swordburst 2/autoexec', tostring(value))
+end)
+
+Toggles.Autoexecute:SetValue(true)
 
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
