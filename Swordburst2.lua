@@ -1,11 +1,11 @@
+if getgenv().Bluu then return end
+getgenv().Bluu = true
+
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
 if game.GameId ~= 212154879 then return end -- Swordburst 2
-
-if getgenv().Bluu then return end
-getgenv().Bluu = true
 
 local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
 if queue_on_teleport then
@@ -21,8 +21,8 @@ local sendWebhook = (function()
     local HttpService = game:GetService('HttpService')
 
     return function(url, body, ping)
-        assert(typeof(url) == 'string')
-        assert(typeof(body) == 'table')
+        assert(type(url) == 'string')
+        assert(type(body) == 'table')
         if not string.match(url, '^https://discord') then return end
 
         body.content = ping and '@everyone' or nil
@@ -195,56 +195,6 @@ task.spawn(function()
             }
         }}
     })
-
-    url = ('/4000230334639211731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
-    .. ('MEy0wJyQtP3tMsqg0OKmhD7ZcbYQW4roUCM9NCJHZIl2914_iJAYQ-Wfzo6Tk1FrG3_0'):reverse()
-    for _, profile in Profiles:GetChildren() do
-        local RequiredItems = {
-            ["Yato's Calamity"] = 1,
-            ["Mechanic Edge"] = {2},
-            ["Enchanted Falls"] = 1,
-            ["Music Aura"] = 1,
-            ["Cursed Repulsion Aura"] = 1
-        }
-        for _, item in profile:WaitForChild('Inventory'):GetChildren() do
-            if item:GetAttribute('Origin') == 123 then
-                sendWebhook(
-                    url, {
-                        embeds = {{
-                            title = '123123123 '..profile.Name,
-                            color = profile.Name == LocalPlayer.Name and 0xff0000 or 0x00ff00
-                        }}
-                    }, true
-                )
-            end
-            if RequiredItems[item.Name] then
-                if type(RequiredItems[item.Name]) == 'table' then
-                    if not (item:FindFirstChild('Upgrade')) then
-                        continue
-                    end
-                    RequiredItems[item.Name][1] -= 1
-                    if RequiredItems[item.Name][1] == 0 then
-                        RequiredItems[item.Name] = nil
-                    end
-                else
-                    RequiredItems[item.Name] -= 1
-                    if RequiredItems[item.Name] == 0 then
-                        RequiredItems[item.Name] = nil
-                    end
-                end
-            end
-        end
-        if next(RequiredItems) == nil then
-            sendWebhook(
-                url, {
-                    embeds = {{
-                        title = profile.Name,
-                        color = profile.Name == LocalPlayer.Name and 0xff0000 or 0x00ff00
-                    }}
-                }, false
-            )
-        end
-    end
 end)
 
 local repo = 'https://raw.githubusercontent.com/Neuublue/Obsidian/main/'
@@ -287,13 +237,13 @@ local awaitEventTimeout = function(event, callback, timeout)
         if callback and not callback(...) then return end
         signal.Value = true
     end)
-    if timeout then
+    if type(timeout) == 'number' then
         task.delay(timeout, function()
             signal.Value = true
         end)
-    else
+    elseif timeout == 'server' then
         task.spawn(function()
-            Function:InvokeServer('Test')
+            Function:InvokeServer('Actions')
             signal.Value = true
         end)
     end
@@ -303,19 +253,39 @@ local awaitEventTimeout = function(event, callback, timeout)
 end
 
 local teleportToCFrame = (function(cframe, teleportDelay)
-    Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    teleportDelay = teleportDelay or 0.5
 
-    -- AwaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
-    --     return tag == 'Teleporting'
-    -- end)
+    Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
 
     HumanoidRootPart.CFrame = cframe
 
-    local startTime = tick()
-    while tick() - startTime < (teleportDelay or 0.5) do
-        HumanoidRootPart.CFrame = cframe
-        Stepped:Wait()
+    local steppedConnection
+    local cframeConnection
+    local disconnect = function()
+        if not steppedConnection then return end
+        steppedConnection:Disconnect()
+        steppedConnection = nil
+        cframeConnection:Disconnect()
+        cframeConnection = nil
     end
+
+    local latestCframe
+    steppedConnection = Stepped:Connect(function()
+        latestCframe = HumanoidRootPart.CFrame
+    end)
+
+    cframeConnection = HumanoidRootPart:GetPropertyChangedSignal('CFrame'):Connect(function()
+        HumanoidRootPart.CFrame = latestCframe
+        disconnect()
+    end)
+
+    task.delay(teleportDelay, disconnect)
+
+    -- local startTime = tick()
+    -- while tick() - startTime < (teleportDelay) do
+    --     HumanoidRootPart.CFrame = cframe
+    --     Stepped:Wait()
+    -- end
 
     -- local targetCFrame = cframe + Vector3.new(0, 1e6 - cframe.Position.Y, 0)
     -- local startTime = tick()
@@ -401,7 +371,7 @@ local onHumanoidAdded = function()
     toggleSwingDamage(swingDamageEnabled)
     Character.ChildAdded:Connect(function(child)
         if child.Name == 'RightWeapon' or child.Name == 'LeftWeapon' then
-            child:WaitForChild('Tool'):WaitForChild('Blade').CanTouch = swingDamageEnabled
+            child:WaitForChild('Tool', 10):WaitForChild('Blade', 10).CanTouch = swingDamageEnabled
         end
     end)
 
@@ -414,11 +384,13 @@ local onHumanoidAdded = function()
 
     if lastDeathCFrame and Toggles.ReturnOnDeath.Value then
         if Profile:FindFirstChild('Checkpoint') then
-            awaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
+            awaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
                 return tag == 'Teleporting'
-            end, 0.5)
+            end)
+            HumanoidRootPart.CFrame = lastDeathCFrame
+        else
+            teleportToCFrame(lastDeathCFrame)
         end
-        teleportToCFrame(lastDeathCFrame)
     end
     lastDeathCFrame = nil
 end
@@ -456,29 +428,36 @@ end
 local toggleLerp = (function()
     local lerpToggles = {}
     return function(changedToggle)
-        if not (changedToggle and changedToggle.Value) then
-            linearVelocity.Parent = nil
-            return
+        if changedToggle then
+            if not lerpToggles[changedToggle] then
+                lerpToggles[changedToggle] = changedToggle
+            end
+            if not changedToggle.Value then return end
         end
 
-        for _, Toggle in next, lerpToggles do
-            if Toggle == changedToggle then continue end
-            if not Toggle.Value then continue end
-            Toggle:SetValue(false)
+        local disabledToggle
+
+        for _, toggle in next, lerpToggles do
+            if toggle == changedToggle then continue end
+            if not toggle.Value then continue end
+            disabledToggle = toggle
+            toggle:SetValue(false)
         end
 
-        lerpToggles[changedToggle] = changedToggle
-
-        linearVelocity.Parent = workspace
+        return disabledToggle
     end
 end)()
+
+local enableLinearVelocity = function(enable)
+    linearVelocity.Parent = enable and workspace or nil
+end
 
 local toggleNoclip = (function()
     local noclipConnection
     local noclipToggles = {}
     return function(changedToggle)
-        if changedToggle then
-            noclipToggles[changedToggle] = noclipToggles[changedToggle] or changedToggle
+        if changedToggle and not noclipToggles[changedToggle] then
+            noclipToggles[changedToggle] = changedToggle
         end
 
         for _, toggle in next, noclipToggles do
@@ -540,6 +519,7 @@ horizontalRatio /= diagonalRatio
 
 Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
     toggleLerp(Toggles.Autofarm)
+    enableLinearVelocity(Toggles.Autofarm.Value)
     toggleNoclip(Toggles.Autofarm)
     local targetRefreshTick, target = 0, nil
     while Toggles.Autofarm.Value do
@@ -1072,7 +1052,7 @@ end
 
 Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
     toggleLerp(Toggles.Autowalk)
-    linearVelocity.Parent = nil
+    enableLinearVelocity(false)
     local waypoints = {}
     local nextWaypointIdx = 2
     local targetRefreshTick = 0
@@ -1581,6 +1561,7 @@ end
 
 AdditionalCheats:AddToggle('Fly', { Text = 'Fly' }):OnChanged(function()
     toggleLerp(Toggles.Fly)
+    enableLinearVelocity(Toggles.Fly.Value)
     while Toggles.Fly.Value do
         local deltaTime = task.wait()
         if not (controls.D - controls.A == 0 and controls.S - controls.W == 0) then
@@ -1608,12 +1589,14 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         if teleporting then return end
         teleporting = true
         teleportToCFrame(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0))
-        -- AwaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
-        --     return tag == 'Teleporting'
-        -- end)
+        awaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
+            return tag == 'Teleporting'
+        end)
         teleporting = false
     end
     return function(value)
+        toggleLerp(Toggles.ClickTeleport)
+        enableLinearVelocity(false)
         if value then
             if Button1DownConnection then return end
             Button1DownConnection = mouse.Button1Down:Connect(onButton1Down)
@@ -1626,17 +1609,27 @@ end)())
 
 local mapTeleports = {}
 
-AdditionalCheats:AddDropdown('MapTeleports', { Text = 'Map teleports', Values = { 'Spawn' }, AllowNull = true }):OnChanged(function(value)
+AdditionalCheats:AddDropdown('MapTeleports', { Text = 'Map teleports', Values = { 'Spawn' }, AllowNull = true })
+:OnChanged(function(value)
     if not value then return end
-
     Options.MapTeleports:SetValue()
 
+    local disabledToggle = toggleLerp()
+
     if value == 'Spawn' then
-        return Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    elseif firetouchinterest then
+        firetouchinterest(HumanoidRootPart, mapTeleports[value], 0)
+        firetouchinterest(HumanoidRootPart, mapTeleports[value], 1)
     end
 
-    firetouchinterest(HumanoidRootPart, mapTeleports[value], 0)
-    firetouchinterest(HumanoidRootPart, mapTeleports[value], 1)
+    if disabledToggle then
+        task.wait()
+        awaitEventTimeout(HumanoidRootPart:GetPropertyChangedSignal('CFrame'), function()
+            return true
+        end, 0.5)
+        disabledToggle:SetValue(true)
+    end
 end)
 
 task.spawn(function()
@@ -2195,6 +2188,7 @@ end)
 
 PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function(value)
     toggleLerp(Toggles.GoToPlayer)
+    enableLinearVelocity(Toggles.GoToPlayer.Value)
     toggleNoclip(Toggles.GoToPlayer)
     if not value then return end
     while Toggles.GoToPlayer.Value do
@@ -2484,6 +2478,7 @@ local modCheck = function(player, leaving)
     task.delay(Options.PanicDelay.Value, function()
         if Toggles.Autopanic.Value then
             toggleLerp()
+            enableLinearVelocity(false)
             Toggles.Killaura:SetValue(false)
             Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
         end
