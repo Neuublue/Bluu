@@ -386,7 +386,7 @@ local onHumanoidAdded = function()
         if Profile:FindFirstChild('Checkpoint') then
             awaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
                 return tag == 'Teleporting'
-            end)
+            end, 3)
             HumanoidRootPart.CFrame = lastDeathCFrame
         else
             teleportToCFrame(lastDeathCFrame)
@@ -1591,7 +1591,7 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         teleportToCFrame(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0))
         awaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
             return tag == 'Teleporting'
-        end)
+        end, 3)
         teleporting = false
     end
     return function(value)
@@ -1764,19 +1764,15 @@ task.spawn(function()
     Options.MapTeleports:SetValues(Options.MapTeleports.Values)
 end)
 
+local proximityPromptIndex = 0
 local proximityPrompts = {}
 local proximityPromptNames = {}
-for _, instance in next, workspace:GetChildren() do
-    if instance.ClassName ~= 'Model' then continue end
-    for _, child in next, instance:GetChildren() do
-        if child.ClassName ~= 'MeshPart' then continue end
-        local attachment = child:FindFirstChildOfClass('Attachment')
-        if not attachment then continue end
-        local proximityPrompt = attachment:FindFirstChildOfClass('ProximityPrompt')
-        if not proximityPrompt then continue end
-        proximityPrompts[child.Name] = proximityPrompt
-        table.insert(proximityPromptNames, child.Name)
-    end
+for _, proximityPrompt in next, game:GetDescendants() do
+    if proximityPrompt.ClassName ~= 'ProximityPrompt' then continue end
+    proximityPromptIndex += 1
+    local name = `{proximityPrompt.Parent.Parent.Name} {proximityPromptIndex}`
+    proximityPrompts[name] = proximityPrompt
+    table.insert(proximityPromptNames, name)
 end
 
 AdditionalCheats:AddDropdown('FireProximityPrompts', {
@@ -1785,12 +1781,16 @@ AdditionalCheats:AddDropdown('FireProximityPrompts', {
     AllowNull = true
 }):OnChanged(function(proximityPromptName)
     if not proximityPromptName then return end
+    Options.FireProximityPrompts:SetValue()
+
     local proximityPrompt = proximityPrompts[proximityPromptName]
     if proximityPrompt.Parent and proximityPrompt.Parent.Parent then
         teleportToCFrame(proximityPrompt.Parent.Parent.CFrame)
+        awaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
+            return tag == 'Teleporting'
+        end, 3)
         fireproximityprompt(proximityPrompt)
     end
-    Options.FireProximityPrompts:SetValue()
 end)
 
 local Miscs = Main:AddLeftTabbox()
