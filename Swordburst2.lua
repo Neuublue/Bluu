@@ -1503,6 +1503,7 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
         name,
         inDatabase.Cost.Value,
         inDatabase.Cooldown.Value,
+        class,
         KillauraSkill.Sword
     )
 end)
