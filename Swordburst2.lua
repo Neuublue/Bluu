@@ -260,27 +260,13 @@ local teleportToCFrame = (function(cframe, teleportDelay)
 
     HumanoidRootPart.CFrame = cframe
 
-    local steppedConnection
     local cframeConnection
-    local disconnect = function()
-        if not steppedConnection then return end
-        steppedConnection:Disconnect()
-        steppedConnection = nil
-        cframeConnection:Disconnect()
-        cframeConnection = nil
-    end
-
-    local latestCframe
-    steppedConnection = Stepped:Connect(function()
-        latestCframe = HumanoidRootPart.CFrame
-    end)
-
     cframeConnection = HumanoidRootPart:GetPropertyChangedSignal('CFrame'):Connect(function()
-        HumanoidRootPart.CFrame = latestCframe
-        disconnect()
+        HumanoidRootPart.CFrame = cframe
+        cframeConnection:Disconnect()
     end)
 
-    task.delay(teleportDelay, disconnect)
+    task.delay(teleportDelay, cframeConnection.Disconnect, cframeConnection)
 
     -- local startTime = tick()
     -- while tick() - startTime < (teleportDelay) do
