@@ -68,6 +68,7 @@ local Humanoid = Character:WaitForChild('Humanoid')
 local HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
 
 local Entity = Character:WaitForChild('Entity')
+local Health = Entity:WaitForChild('Health')
 local Stamina = Entity:WaitForChild('Stamina')
 
 local Camera = workspace.CurrentCamera
@@ -228,7 +229,7 @@ local Autofarm = Farming:AddTab('Autofarm')
 local linearVelocity = Instance.new('LinearVelocity')
 linearVelocity.MaxForce = math.huge
 
-local KillauraSkill
+local KillauraSkill = {}
 
 local awaitEventTimeout = function(event, callback, timeout)
     local signal = Instance.new('BoolValue')
@@ -371,7 +372,7 @@ local onHumanoidAdded = function()
     toggleSwingDamage(swingDamageEnabled)
     Character.ChildAdded:Connect(function(child)
         if child.Name == 'RightWeapon' or child.Name == 'LeftWeapon' then
-            child:WaitForChild('Tool', 10):WaitForChild('Blade', 10).CanTouch = swingDamageEnabled
+            child:WaitForChild('Tool', 1e6):WaitForChild('Blade', 1e6).CanTouch = swingDamageEnabled
         end
     end)
 
@@ -406,6 +407,7 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     if not Entity then
         return fastRespawn()
     end
+    Health = Entity:WaitForChild('Health')
     Stamina = Entity:WaitForChild('Stamina')
     onHumanoidAdded()
 end)
@@ -525,7 +527,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
     while Toggles.Autofarm.Value do
         local deltaTime = task.wait()
 
-        if not (Humanoid.Health > 0) then continue end
+        if Humanoid.Health == 0 then continue end
 
         if not (controls.D - controls.A == 0 and controls.S - controls.W == 0) then
             local flySpeed = 80 -- math.max(Humanoid.WalkSpeed, 60)
@@ -1060,7 +1062,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
     while Toggles.Autowalk.Value do
         RenderStepped:Wait()
 
-        if not (Humanoid.Health > 0) then continue end
+        if Humanoid.Health == 0 then continue end
 
         if not (controls.D - controls.A == 0 and controls.S - controls.W == 0) then
             continue
@@ -1134,9 +1136,9 @@ local getItemStat = (function()
     }
 
     return function(item)
-        local itemInDatabase = Items[item.Name]
+        local inDatabase = Items[item.Name]
 
-        local Stats = itemInDatabase:FindFirstChild('Stats')
+        local Stats = inDatabase:FindFirstChild('Stats')
         if not Stats then return end
 
         local Stat = Stats:FindFirstChild('Damage') or Stats:FindFirstChild('Defense')
@@ -1144,7 +1146,7 @@ local getItemStat = (function()
 
         local baseStat = Stat.Value
 
-        local ScaleByLevel = itemInDatabase:FindFirstChild('ScaleByLevel')
+        local ScaleByLevel = inDatabase:FindFirstChild('ScaleByLevel')
         if ScaleByLevel then
             baseStat = baseStat * ScaleByLevel.Value * getLevel()
         end
@@ -1154,7 +1156,7 @@ local getItemStat = (function()
             return baseStat
         end
 
-        local Rarity = itemInDatabase.Rarity.Value
+        local Rarity = inDatabase.Rarity.Value
 
         local maxUpgrade = maxUpgrades[Rarity]
 
@@ -1172,27 +1174,37 @@ local getItemStat = (function()
     end
 end)()
 
+KillauraSkill.Init = function(name, cost, cooldown, class, sword)
+    local self = KillauraSkill
+    self.Name = name
+    self.Cost = cost or 0
+    self.Cooldown = cooldown or 0
+    self.Class = class
+    self.Sword = sword
+    self.OnCooldown = false
+    self.Active = false
+    self.LastHit = false
+end
+
+KillauraSkill.Init()
+
 local rightSword = getItemById(Equip.Right.Value)
 local leftSword = getItemById(Equip.Left.Value)
 
-KillauraSkill = {
-    Active = false,
-    OnCooldown = false,
-    LastHit = false
-}
-
 KillauraSkill.GetSword = function(class)
-    class = class or KillauraSkill.Class
+    local self = KillauraSkill
+    if class and self.Sword and self.Sword.Parent then
+        return self.Sword
+    end
+    class = class or self.Class
     if rightSword and Items[rightSword.Name].Class.Value == class then
-        KillauraSkill.Sword = rightSword
+        self.Sword = rightSword
         return rightSword
-    elseif KillauraSkill.Sword and KillauraSkill.Sword.Parent and Items[KillauraSkill.Sword.Name].Class.Value == class then
-        return KillauraSkill.Sword
     end
     for _, item in next, Inventory:GetChildren() do
-        local itemInDatabase = Items[item.Name]
-        if itemInDatabase.Type.Value == 'Weapon' and itemInDatabase.Class.Value == class then
-            KillauraSkill.Sword = item
+        local inDatabase = Items[item.Name]
+        if inDatabase.Type.Value == 'Weapon' and inDatabase.Class.Value == class then
+            self.Sword = item
             return item
         end
     end
@@ -1272,62 +1284,82 @@ local getKillauraThreads = (function()
     end
 end)()
 
-local onCooldown = {}
+local MiscSkill = {}
 
-local useSkill = function(skill)
-    if not (Humanoid.Health > 0) then return end
-    if not skill.Name then return end
-    if skill.OnCooldown then return end
-    if skill.Cost > Stamina.Value then return end
-
-    skill.OnCooldown = true
-    skill.Active = true
-
-    if not skill.Class then
-        Event:FireServer('Skills', { 'UseSkill', skill.Name })
-    elseif skill.GetSword() then
-        if skill.Sword == rightSword and not leftSword then
-            Event:FireServer('Skills', { 'UseSkill', skill.Name })
-        else
-            local rightSwordOld = rightSword
-            local leftSwordOld = leftSword
-            InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = skill.Sword.Value }, 'Right' })
-            Event:FireServer('Skills', { 'UseSkill', skill.Name })
-            if rightSwordOld then
-                local staminaOld = Stamina.Value
-                awaitEventTimeout(Stamina.Changed, function(value)
-                    if staminaOld - value == skill.Cost then
-                        return true
-                    end
-                    staminaOld = value
-                end, 0.1)
-                InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = rightSwordOld.Value }, 'Right' })
-                if leftSwordOld then
-                    InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = leftSwordOld.Value }, 'Left' })
-                end
-            end
-        end
-    else
-        Library:Notify(`Get a {skill.Class:lower()} first`)
-        Options.SkillToUse:SetValue()
+KillauraSkill._use = function()
+    local self = KillauraSkill
+    Event:FireServer('Skills', { 'UseSkill', self.Name })
+    self.OnCooldown = true
+    self.Active = true
+    if MiscSkill._onKillauraSkill then
+        MiscSkill._onKillauraSkill()
     end
-
-    task.spawn(function()
-        task.wait(2.39)
-        skill.LastHit = true
-        task.wait(0.61)
-        skill.LastHit = false
-        skill.Active = false
+    task.delay(2.5, function()
+        self.LastHit = true
+        task.wait(0.5)
+        self.LastHit = false
+        self.Active = false
         if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
             fastRespawn()
         end
-        if skill.Name == 'Summon Pistol' then
-            task.wait(1)
-        elseif skill.Name == 'Meteor Shot' then
-            task.wait(12)
-        end
-        skill.OnCooldown = false
+        task.wait(self.Cooldown - 3)
+        self.OnCooldown = false
     end)
+end
+
+KillauraSkill.Use = function()
+    if Humanoid.Health == 0 then return end
+
+    local self = KillauraSkill
+    if not self.Name then return end
+    if self.OnCooldown then return end
+    if self.Cost > Stamina.Value then return end
+
+    if not self.Class then
+        return self._use()
+    end
+
+    if not self.GetSword() then
+        Library:Notify(`Get a {self.Class:lower()} first`)
+        return Options.SkillToUse:SetValue()
+    end
+
+    if self.Sword ~= rightSword then
+        local rightSwordOld = rightSword
+        local leftSwordOld = leftSword
+        InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = self.Sword.Value }, 'Right' })
+        self._use()
+        if rightSwordOld then
+            local staminaOld = Stamina.Value
+            awaitEventTimeout(Stamina.Changed, function(value)
+                if staminaOld - value == self.Cost then
+                    return true
+                end
+                staminaOld = value
+            end, 0.1)
+            InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = rightSwordOld.Value }, 'Right' })
+            if leftSwordOld then
+                InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = leftSwordOld.Value }, 'Left' })
+            end
+        end
+        return
+    end
+
+    if not leftSword then
+        return self._use()
+    end
+
+    local leftSwordOld = leftSword
+    InvokeFunction('Equipment', { 'Unequip', { Name = 'Steel Longsword', Value = leftSwordOld.Value } })
+    self._use()
+    local staminaOld = Stamina.Value
+    awaitEventTimeout(Stamina.Changed, function(value)
+        if staminaOld - value == self.Cost then
+            return true
+        end
+        staminaOld = value
+    end, 0.1)
+    InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = leftSwordOld.Value }, 'Left' })
 end
 
 local dealDamage = (function()
@@ -1341,11 +1373,13 @@ local dealDamage = (function()
     end
 end)()
 
+local onCooldown = {}
+
 local attack = function(target)
     if isDead(target) then return end
 
     if Toggles.UseSkillPreemptively.Value or target.Entity.Health:FindFirstChild(LocalPlayer.Name) then
-        useSkill(KillauraSkill)
+        KillauraSkill.Use()
     end
 
     if isDead(target) then return end
@@ -1376,7 +1410,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
     while Toggles.Killaura.Value do
         task.wait(0.01)
 
-        if not (Humanoid.Health > 0) then continue end
+        if Humanoid.Health == 0 then continue end
 
         for _, target in next, Mobs:GetChildren() do
             if onCooldown[target] then continue end
@@ -1426,8 +1460,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             end
         end
 
-        if swingFunction then
-            -- this is preferred since it ignores the swinging state
+        if swingFunction then -- this is preferred since it ignores the swinging state
             if next(onCooldown) then
                 task.spawn(swingFunction)
             end
@@ -1451,15 +1484,12 @@ Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Mu
 Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values = {}, AllowNull = true })
 :OnChanged(function(value)
     if not value then
-        KillauraSkill.Class = nil
-        KillauraSkill.Name = nil
-        KillauraSkill.Cost = 0
-        return
+        return KillauraSkill.Init()
     end
 
-    local skillName = value:gsub(' [(].+$', '')
-    local skillInDatabase = Skills[skillName]
-    local class = skillInDatabase:FindFirstChild('Class') and skillInDatabase.Class.Value
+    local name = value:gsub(' [(].+$', '')
+    local inDatabase = Skills[name]
+    local class = inDatabase:FindFirstChild('Class') and inDatabase.Class.Value
     if class then
         class = class == 'SingleSword' and '1HSword' or class
 
@@ -1469,20 +1499,23 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
         end
     end
 
-    KillauraSkill.Class = class
-    KillauraSkill.Name = skillName
-    KillauraSkill.Cost = skillInDatabase.Cost.Value
+    KillauraSkill.Init(
+        name,
+        inDatabase.Cost.Value,
+        inDatabase.Cooldown.Value,
+        KillauraSkill.Sword
+    )
 end)
 
 if getLevel() >= 21 then
-    -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
+    table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
     table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
     Options.SkillToUse:SetValues(Options.SkillToUse.Values)
 else
     local LevelConnection
     LevelConnection = Level.Changed:Connect(function()
         if getLevel() < 21 then return end
-        -- table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
+        table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
         table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
         Options.SkillToUse:SetValues(Options.SkillToUse.Values)
         LevelConnection:Disconnect()
@@ -1493,31 +1526,158 @@ if getLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
     table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
     Options.SkillToUse:SetValues(Options.SkillToUse.Values)
 else
-    local SkillConnection
-    SkillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
+    local skillConnection
+    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
         if getLevel() < 60 then return end
         if skill.Name ~= 'Summon Pistol' then return end
         table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
         Options.SkillToUse:SetValues(Options.SkillToUse.Values)
-        SkillConnection:Disconnect()
+        skillConnection:Disconnect()
     end)
 end
 
--- if GetLevel() >= 200 and Profile.Skills:FindFirstChild('Meteor Shot') then
---     table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
---     Options.SkillToUse:SetValues(Options.SkillToUse.Values)
--- else
---     local SkillConnection
---     SkillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
---         if GetLevel() < 200 then return end
---         if skill.Name ~= 'Meteor Shot' then return end
---         table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
---         Options.SkillToUse:SetValues(Options.SkillToUse.Values)
---         SkillConnection:Disconnect()
---     end)
--- end
+if getLevel() >= 200 and Profile.Skills:FindFirstChild('Meteor Shot') then
+    table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
+    Options.SkillToUse:SetValues(Options.SkillToUse.Values)
+else
+    local skillConnection
+    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
+        if getLevel() < 200 then return end
+        if skill.Name ~= 'Meteor Shot' then return end
+        table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
+        Options.SkillToUse:SetValues(Options.SkillToUse.Values)
+        skillConnection:Disconnect()
+    end)
+end
 
 Killaura:AddToggle('UseSkillPreemptively', { Text = 'Use skill preemptively' })
+
+MiscSkill.Init = function(name, cost, cooldown)
+    local self = MiscSkill
+    self.Name = name
+    self.Cost = cost or 0
+    self.Cooldown = cooldown or 0
+    self.OnCooldown = false
+    self._connections = {}
+    self._onKillauraSkill = nil
+end
+
+MiscSkill.Init()
+
+MiscSkill._disconnect = function()
+    local self = MiscSkill
+    for _, connection in self._connections do
+        connection:Disconnect()
+    end
+    self._onKillauraSkill = nil
+end
+
+MiscSkill._use = function()
+    local self = MiscSkill
+    Event:FireServer('Skills', { 'UseSkill', self.Name })
+    self.OnCooldown = true
+    task.delay(self.Cooldown, function()
+        self.OnCooldown = false
+    end)
+end
+
+Killaura:AddDropdown('MiscSkillToUse', { Text = 'Misc skill to use', Values = {}, AllowNull = true })
+:OnChanged(function(value)
+    local self = MiscSkill
+
+    self._disconnect()
+
+    if not value then
+        return self.Init()
+    end
+
+    local name = value:gsub(' [(].+$', '')
+    local inDatabase = Skills[name]
+
+    self.Init(
+        name,
+        inDatabase.Cost.Value,
+        inDatabase.Cooldown.Value
+    )
+
+    if name == 'Heal' or name == 'Mending Spirit' then
+        local func = function()
+            if Stamina.Value < self.Cost then return end
+            if self.OnCooldown then return end
+            if (Health.Value / Health.MaxValue) > 0.66 then return end
+            self._use()
+        end
+        self._connections.health = Health.Changed:Connect(func)
+        self._connections.stamina = Stamina.Changed:Connect(func)
+    elseif name == 'Summon Tree' then
+        local func = function()
+            if Stamina.Value < self.Cost then return end
+            if self.OnCooldown then return end
+            if Stamina.Value > 66 then return end
+            self._use()
+        end
+        self._connections.stamina = Stamina.Changed:Connect(func)
+    elseif name == 'Cursed Enhancement' then
+        self._onKillauraSkill = function()
+            if Stamina.Value < self.Cost then return end
+            if self.OnCooldown then return end
+            self._use()
+        end
+    end
+end)
+
+if Profile.Skills:FindFirstChild('Cursed Enhancement') then
+    table.insert(Options.MiscSkillToUse.Values, 'Cursed Enhancement (x2.5)')
+    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+else
+    local skillConnection
+    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
+        if skill.Name ~= 'Cursed Enhancement' then return end
+        table.insert(Options.MiscSkillToUse.Values, 'Cursed Enhancement (x2.5)')
+        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+        skillConnection:Disconnect()
+    end)
+end
+
+if getLevel() >= 50 then
+    table.insert(Options.MiscSkillToUse.Values, 'Heal (30%)')
+    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+else
+    local skillConnection
+    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
+        if getLevel() < 50 then return end
+        if skill.Name ~= 'Heal' then return end
+        table.insert(Options.MiscSkillToUse.Values, 'Heal (30%)')
+        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+        skillConnection:Disconnect()
+    end)
+end
+
+if Profile.Skills:FindFirstChild('Mending Spirit') then
+    table.insert(Options.MiscSkillToUse.Values, 'Mending Spirit (4%/s)')
+    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+else
+    local skillConnection
+    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
+        if skill.Name ~= 'Mending Spirit' then return end
+        table.insert(Options.MiscSkillToUse.Values, 'Mending Spirit (4%/s)')
+        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+        skillConnection:Disconnect()
+    end)
+end
+
+if Profile.Skills:FindFirstChild('Summon Tree') then
+    table.insert(Options.MiscSkillToUse.Values, 'Summon Tree (6%/s)')
+    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+else
+    local skillConnection
+    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
+        if skill.Name ~= 'Summon Tree' then return end
+        table.insert(Options.MiscSkillToUse.Values, 'Summon Tree (6%/s)')
+        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
+        skillConnection:Disconnect()
+    end)
+end
 
 local AdditionalCheats = Main:AddRightGroupbox('Additional cheats')
 
@@ -1743,7 +1903,10 @@ task.spawn(function()
         end
     end
 
-    if game.PlaceId == 6144637080 then -- floor 12
+    if game.PlaceId == 566212942 then -- floor 6
+        mapTeleports['Undershroud'] = workspace:WaitForChild('Portal'):WaitForChild('TouchPart')
+        table.insert(Options.MapTeleports.Values, 'Undershroud')
+    elseif game.PlaceId == 6144637080 then -- floor 12
         LocalPlayer:RequestStreamAroundAsync(Vector3.new(-2415.14258, 128.760483, 6343.8584))
         mapTeleports['Atheon'] = workspace:WaitForChild('AtheonPortal')
         table.insert(Options.MapTeleports.Values, 'Atheon')
@@ -1964,16 +2127,16 @@ local equipBestWeaponAndArmor = function()
     local bestArmor, bestWeapon
 
     for _, item in next, Inventory:GetChildren() do
-        local itemInDatabase = Items[item.Name]
+        local inDatabase = Items[item.Name]
 
         if not Toggles.WeaponAndArmorLevelBypass.Value and (
-            itemInDatabase:FindFirstChild('Level')
-            and itemInDatabase.Level.Value or 0
+            inDatabase:FindFirstChild('Level')
+            and inDatabase.Level.Value or 0
         ) > getLevel() then
             continue
         end
 
-        local itemType = itemInDatabase.Type.Value
+        local itemType = inDatabase.Type.Value
 
         if itemType == 'Clothing' then
             local defense = getItemStat(item)
@@ -2252,11 +2415,11 @@ local rarityColors = {
 }
 
 Inventory.ChildAdded:Connect(function(item)
-    local itemInDatabase = Items[item.Name]
+    local inDatabase = Items[item.Name]
 
     if item.Name:find('Novice') or item.Name:find('Aura') then return end
 
-    local rarity = itemInDatabase.Rarity.Value
+    local rarity = inDatabase.Rarity.Value
 
     if Options.AutoDismantle.Value[rarity] then
         return Event:FireServer('Equipment', { 'Dismantle', { item } })
@@ -2283,7 +2446,7 @@ Inventory.ChildAdded:Connect(function(item)
                     inline = true
                 }, {
                     name = 'Item Stats',
-                    value = `[Level {(itemInDatabase:FindFirstChild('Level') and itemInDatabase.Level.Value or 0)} {rarity}]`
+                    value = `[Level {(inDatabase:FindFirstChild('Level') and inDatabase.Level.Value or 0)} {rarity}]`
                         .. `(https://swordburst2.fandom.com/wiki/{string.gsub(item.Name, ' ', '_')})`,
                     inline = true
                 }
@@ -2302,7 +2465,7 @@ Profile.Skills.ChildAdded:Connect(function(skill)
     if table.find(ownedSkillNames, skill.Name) then return end
     table.insert(ownedSkillNames, skill.Name)
 
-    local skillInDatabase = Skills[skill.Name]
+    local inDatabase = Skills[skill.Name]
     sendWebhook(Options.DropWebhook.Value, {
         embeds = {{
             title = `You received {skill.Name}!`,
@@ -2318,7 +2481,7 @@ Profile.Skills.ChildAdded:Connect(function(skill)
                     inline = true
                 }, {
                     name = 'Skill Stats',
-                    value = `[Level {(skillInDatabase:FindFirstChild('Level') and skillInDatabase.Level.Value or 0)}]`
+                    value = `[Level {(inDatabase:FindFirstChild('Level') and inDatabase.Level.Value or 0)}]`
                         .. `(https://swordburst2.fandom.com/wiki/{string.gsub(skill.Name, ' ', '_')})`,
                     inline = true
                 }
@@ -2447,13 +2610,20 @@ local mods = {
     2324028828,
     2462374233,
     2787915712,
-    1255771814,
     360470140,
     2475151189,
     3522932153,
     3772282131,
     7557087747,
-    5536587740
+    5536587740,
+    3931735673,
+    33903799,
+    22026533,
+    417576199,
+    80692318,
+    102583875,
+    492574273,
+    468344010,
 }
 
 ModDetector:AddToggle('Autokick', { Text = 'Autokick' })
