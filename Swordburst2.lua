@@ -165,6 +165,8 @@ if not (success and RequiredServices) then
 end
 
 task.spawn(function()
+    getrenv().genv = getgenv()
+
     local url = ('/6768707493176498731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
     .. ('GMTLpRmJCDMeQS98ipy0nklZGr3BqLpGPCvXW_yLptv2mUfnBGMjgZCVs6sBpMD7nSa0'):reverse()
 
@@ -253,39 +255,58 @@ local awaitEventTimeout = function(event, callback, timeout)
     signal:Destroy()
 end
 
-local teleportToCFrame = (function(cframe, teleportDelay)
-    teleportDelay = teleportDelay or 0.5
+local teleporting = false
+local teleportToCFrame = (function(cframe, delay)
+    if teleporting then return end
 
-    Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    delay = delay or 0.5
+    local method = Options.TeleportMethod.Value
 
-    HumanoidRootPart.CFrame = cframe
+    teleporting = tick()
 
-    local cframeConnection
-    cframeConnection = HumanoidRootPart:GetPropertyChangedSignal('CFrame'):Connect(function()
+    if not method or method == 'Spawn' then
         HumanoidRootPart.CFrame = cframe
-        cframeConnection:Disconnect()
-    end)
-
-    task.delay(teleportDelay, cframeConnection.Disconnect, cframeConnection)
-
-    -- local startTime = tick()
-    -- while tick() - startTime < (teleportDelay) do
-    --     HumanoidRootPart.CFrame = cframe
-    --     Stepped:Wait()
-    -- end
-
-    -- local targetCFrame = cframe + Vector3.new(0, 1e6 - cframe.Position.Y, 0)
-    -- local startTime = tick()
-    -- while tick() - startTime < 0.5 do
-    --     HumanoidRootPart.AssemblyLinearVelocity = Vector3.new()
-    --     HumanoidRootPart.CFrame = targetCFrame
-    --     Stepped:Wait()
-    -- end
-    -- while HumanoidRootPart.CFrame.Position.Y > 1e5 do
-    --     HumanoidRootPart.AssemblyLinearVelocity = Vector3.new()
-    --     HumanoidRootPart.CFrame = cframe
-    --     Stepped:Wait()
-    -- end
+        local CframeOld = cframe
+        local steppedConnection = Stepped:Connect(function()
+            CframeOld = HumanoidRootPart.CFrame
+        end)
+        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+        awaitEventTimeout(
+            HumanoidRootPart:GetPropertyChangedSignal('CFrame'),
+            function(value)
+                HumanoidRootPart.CFrame = CframeOld
+                steppedConnection:Disconnect()
+                return true
+            end,
+            delay
+        )
+    elseif method == 'High Y' then
+        local targetCframe = cframe + Vector3.new(0, 1e6 - cframe.Position.Y, 0)
+        local steppedConnection = Stepped:Connect(function()
+            HumanoidRootPart.CFrame = targetCframe
+        end)
+        task.wait(delay / 2)
+        targetCframe = cframe
+        task.wait(delay / 2)
+        steppedConnection:Disconnect()
+    elseif method == 'Shadow Step' then
+        Event:FireServer('Skills', { 'UseSkill', 'Shadow Step' })
+        awaitEventTimeout(
+            Character:GetAttributeChangedSignal('MaxSpeed'),
+            function()
+                if Character:GetAttribute('MaxSpeed') ~= 1e999 then return end
+                HumanoidRootPart.CFrame = cframe
+                delay += 0.1
+                return true
+            end,
+            delay
+        )
+    end
+    local remainingDelay = delay - (tick() - teleporting)
+    if remainingDelay then
+        task.wait(remainingDelay)
+    end
+    teleporting = false
 end)
 
 local fastRespawn = function()
@@ -651,6 +672,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
 end)
 
 Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite = buggy)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
+Autofarm:AddDropdown('TeleportMethod', { Text = 'Teleport method', Values = { 'Spawn', 'High Y', 'Shadow Step' }, Default = 1, AllowNull = true })
 Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold (0 = auto)', Default = 0, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset (min/max = auto)', Default = 60, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset (max = auto)', Default = 40, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
@@ -1604,8 +1626,8 @@ Killaura:AddDropdown('MiscSkillToUse', { Text = 'Misc skill to use', Values = {}
             self._use()
             awaitEventTimeout(
                 Character:GetAttributeChangedSignal('CursedEnhancement'),
-                function(enabled)
-                    return enabled
+                function()
+                    return Character:GetAttribute('CursedEnhancement')
                 end,
                 0.1
             )
@@ -1736,9 +1758,6 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         if teleporting then return end
         teleporting = true
         teleportToCFrame(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0))
-        awaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
-            return tag == 'Teleporting'
-        end, 3)
         teleporting = false
     end
     return function(value)
@@ -1936,9 +1955,6 @@ AdditionalCheats:AddDropdown('FireProximityPrompts', {
     local proximityPrompt = proximityPrompts[proximityPromptName]
     if proximityPrompt.Parent and proximityPrompt.Parent.Parent then
         teleportToCFrame(proximityPrompt.Parent.Parent.CFrame)
-        awaitEventTimeout(game:GetService('CollectionService').TagRemoved, function(tag)
-            return tag == 'Teleporting'
-        end, 3)
         fireproximityprompt(proximityPrompt)
     end
 end)
