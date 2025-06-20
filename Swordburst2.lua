@@ -1273,13 +1273,13 @@ end)()
 local MiscSkill = {}
 
 KillauraSkill._use = function()
+    if MiscSkill._onKillauraSkill then
+        MiscSkill._onKillauraSkill()
+    end
     local self = KillauraSkill
     Event:FireServer('Skills', { 'UseSkill', self.Name })
     self.OnCooldown = true
     self.Active = true
-    if MiscSkill._onKillauraSkill then
-        MiscSkill._onKillauraSkill()
-    end
     task.delay(2.5, function()
         self.LastHit = true
         task.wait(0.5)
@@ -1545,19 +1545,14 @@ MiscSkill.Init = function(name, cost, cooldown)
     self.Cost = cost or 0
     self.Cooldown = cooldown or 0
     self.OnCooldown = false
+    for _, connection in self._connections or {} do
+        connection:Disconnect()
+    end
     self._connections = {}
     self._onKillauraSkill = nil
 end
 
 MiscSkill.Init()
-
-MiscSkill._disconnect = function()
-    local self = MiscSkill
-    for _, connection in self._connections do
-        connection:Disconnect()
-    end
-    self._onKillauraSkill = nil
-end
 
 MiscSkill._use = function()
     local self = MiscSkill
@@ -1571,8 +1566,6 @@ end
 Killaura:AddDropdown('MiscSkillToUse', { Text = 'Misc skill to use', Values = {}, AllowNull = true })
 :OnChanged(function(value)
     local self = MiscSkill
-
-    self._disconnect()
 
     if not value then
         return self.Init()
@@ -1606,9 +1599,16 @@ Killaura:AddDropdown('MiscSkillToUse', { Text = 'Misc skill to use', Values = {}
         self._connections.stamina = Stamina.Changed:Connect(func)
     elseif name == 'Cursed Enhancement' then
         self._onKillauraSkill = function()
-            if Stamina.Value < self.Cost then return end
+            if Stamina.Value < (self.Cost + KillauraSkill.Cost) then return end
             if self.OnCooldown then return end
             self._use()
+            awaitEventTimeout(
+                Character:GetAttributeChangedSignal('CursedEnhancement'),
+                function(enabled)
+                    return enabled
+                end,
+                0.1
+            )
         end
     end
 end)
