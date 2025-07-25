@@ -137,7 +137,7 @@ end)()
 
 local success, RequiredServices = pcall(function()
     if not MainModule then return end
-    local require = getrenv().require
+    local require = getgenv().require or getrenv().require
     local RequiredServices = require(MainModule).Services
     local UI = MainModule.Services.UI
     RequiredServices.InventoryUI = require(UI.Inventory)
