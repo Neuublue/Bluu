@@ -44,7 +44,6 @@ local sendWebhook = (function()
     end
 end)()
 
-
 local sendTestMessage = function(url)
     sendWebhook(
         url, {
@@ -208,14 +207,14 @@ local Toggles = Library.Toggles
 
 local Window = Library:CreateWindow({
     Title = 'Bluu',
-	Footer = 'Swordburst 2 | discord.gg/nKQp6VqzJF',
+	Footer = 'Swordburst 2 | discord.gg/nKQp6VqzJF | Updated 9/14/2025',
     Center = true,
     AutoShow = true,
     ToggleKeybind = Enum.KeyCode.End,
     NotifySide = 'Left',
     ShowCustomCursor = false,
     -- CornerRadius = 4,
-    -- Icon = 83959362414224,
+    Icon = 166652117,
     Resizable = true,
     MobileButtonsSide = 'Right',
     -- TabPadding = 8,
@@ -233,7 +232,7 @@ linearVelocity.MaxForce = math.huge
 
 local KillauraSkill = {}
 
-local awaitEventTimeout = function(event, callback, timeout)
+local awaitEventTimeout = function(event, callback, timeout, yield)
     local signal = Instance.new('BoolValue')
     local connection
     connection = event:Connect(function(...)
@@ -244,70 +243,64 @@ local awaitEventTimeout = function(event, callback, timeout)
         task.delay(timeout, function()
             signal.Value = true
         end)
-    elseif timeout == 'server' then
-        task.spawn(function()
-            Function:InvokeServer('Actions')
-            signal.Value = true
-        end)
     end
-    signal:GetPropertyChangedSignal('Value'):Wait()
-    connection:Disconnect()
-    signal:Destroy()
+    local await = function()
+        signal:GetPropertyChangedSignal('Value'):Wait()
+        connection:Disconnect()
+        signal:Destroy()
+    end
+    if yield == false then task.spawn(await) else await() end
 end
 
-local teleporting = false
-local teleportToCFrame = (function(cframe, delay)
-    if teleporting then return end
-
-    delay = delay or 0.5
-    local method = Options.TeleportMethod.Value
-
-    teleporting = tick()
-
-    if not method or method == 'Spawn' then
+local Teleport = {}
+Teleport.OnCooldown = false
+Teleport.Methods = {}
+Teleport.Methods['Spawn'] = {
+    Cooldown = 0.5,
+    Part1 = function(cframe)
         HumanoidRootPart.CFrame = cframe
-        local CframeOld = cframe
-        local steppedConnection = Stepped:Connect(function()
-            CframeOld = HumanoidRootPart.CFrame
-        end)
         Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+    end,
+    Part2 = function(cframe)
+        local cframeOld = cframe
+        local steppedConnection = Stepped:Connect(function()
+            cframeOld = HumanoidRootPart.CFrame
+        end)
         awaitEventTimeout(
             HumanoidRootPart:GetPropertyChangedSignal('CFrame'),
             function(value)
-                HumanoidRootPart.CFrame = CframeOld
+                HumanoidRootPart.CFrame = cframeOld
                 steppedConnection:Disconnect()
                 return true
             end,
-            delay
+            Teleport.Methods['Spawn'].Cooldown
         )
-    elseif method == 'High Y' then
-        local targetCframe = cframe + Vector3.new(0, 1e6 - cframe.Position.Y, 0)
+    end
+}
+Teleport.Methods['High Y'] = {
+    Cooldown = 0.5,
+    Part1 = function(cframe)
+        local targetCframe = HumanoidRootPart.CFrame
+            + Vector3.new(0, 1e6 - HumanoidRootPart.CFrame.Position.Y, 0)
         local steppedConnection = Stepped:Connect(function()
             HumanoidRootPart.CFrame = targetCframe
         end)
-        task.wait(delay / 2)
+        task.wait(Teleport.Methods['High Y'].Cooldown / 2)
         targetCframe = cframe
-        task.wait(delay / 2)
+        task.wait(Teleport.Methods['High Y'].Cooldown / 2)
         steppedConnection:Disconnect()
-    elseif method == 'Shadow Step' then
-        Event:FireServer('Skills', { 'UseSkill', 'Shadow Step' })
-        awaitEventTimeout(
-            Character:GetAttributeChangedSignal('MaxSpeed'),
-            function()
-                if Character:GetAttribute('MaxSpeed') ~= 1e999 then return end
-                HumanoidRootPart.CFrame = cframe
-                delay += 0.1
-                return true
-            end,
-            delay
-        )
+    end,
+    Part2 = function()
+
     end
-    local remainingDelay = delay - (tick() - teleporting)
-    if remainingDelay then
-        task.wait(remainingDelay)
-    end
-    teleporting = false
-end)
+}
+
+Teleport.Func = function(cframe, part2)
+    local method = Teleport.Methods[Options.TeleportMethod.Value]
+    method.Part1(cframe)
+    if part2 == false then return end
+    method.Part2(cframe)
+end
 
 local fastRespawn = function()
     Event:FireServer('Profile', { 'Respawn' })
@@ -397,7 +390,7 @@ local onHumanoidAdded = function()
             end, 3)
             HumanoidRootPart.CFrame = lastDeathCFrame
         else
-            teleportToCFrame(lastDeathCFrame)
+            Teleport.Func(lastDeathCFrame)
         end
     end
     lastDeathCFrame = nil
@@ -521,158 +514,208 @@ UserInputService.InputEnded:Connect(function(key, gameProcessed)
     controls[key.KeyCode.Name] = 0
 end)
 
-local verticalRatio, horizontalRatio = 4, 1
-local diagonalRatio = math.sqrt(verticalRatio ^ 2 + horizontalRatio ^ 2)
-verticalRatio /= diagonalRatio
-horizontalRatio /= diagonalRatio
+local getAutofarmTarget = function()
+    local radius = Options.AutofarmRadius.Value
+    radius = (radius == 0) and math.huge or radius
+
+    local closestTarget, closestPrioTarget
+    local minDistance, minPrioDistance = radius, radius
+
+    local ignoreList = Options.IgnoreMobs.Value
+    local prioritizeList = Options.PrioritizeMobs.Value
+    local useWaypoint = Toggles.UseWaypoint.Value
+    local waypointPos = waypoint.Position
+    local myPos = HumanoidRootPart.Position
+
+    for _, mob in next, Mobs:GetChildren() do
+        local mobName = mob.Name
+        if ignoreList[mobName] or isDead(mob) then continue end
+
+        local mobPos = mob:FindFirstChild('HumanoidRootPart') and mob.HumanoidRootPart.Position
+        if not mobPos then continue end
+
+        if useWaypoint and (mobPos - waypointPos).Magnitude > radius then continue end
+
+        local dist = (mobPos - myPos).Magnitude
+
+        if prioritizeList[mobName] then
+            if dist < minPrioDistance then
+                minPrioDistance = dist
+                closestPrioTarget = mob
+            end
+        elseif not closestPrioTarget and dist < minDistance then
+            minDistance = dist
+            closestTarget = mob
+        end
+    end
+
+    return closestPrioTarget or closestTarget
+end
+
+local calculateAutofarmOffset = (function()
+    local ratioDirection = Vector2.new(1, 4).Unit
+    local verticalRatio = ratioDirection.Y
+    local horizontalRatio = ratioDirection.X
+
+    return function(target)
+        local rootPart = target:FindFirstChild('HumanoidRootPart')
+        if not rootPart then return nil end
+
+        local size = rootPart.Size
+        local radius = math.sqrt(size.X ^ 2 + size.Z ^ 2) / 2
+        radius += KillauraSkill.Active and 29 or 14
+
+        local vertical = Options.AutofarmVerticalOffset.Value
+        local horizontal = Options.AutofarmHorizontalOffset.Value
+
+        if vertical == Options.AutofarmVerticalOffset.Max then
+            if horizontal == Options.AutofarmHorizontalOffset.Max then
+                vertical = radius * verticalRatio
+                horizontal = radius * horizontalRatio
+            else
+                local root = math.sqrt(radius ^ 2 - horizontal ^ 2)
+                vertical = root == root and root or 0
+            end
+        elseif vertical == Options.AutofarmVerticalOffset.Min then
+            local minYOffset = -size.Y / 2 - 2.9
+            if horizontal == Options.AutofarmHorizontalOffset.Max then
+                vertical = minYOffset
+                horizontal = math.sqrt(radius ^ 2 - vertical ^ 2)
+            else
+                local root = -math.sqrt(radius ^ 2 - horizontal ^ 2)
+                vertical = math.max(root == root and root or 0, minYOffset)
+            end
+        elseif horizontal == Options.AutofarmHorizontalOffset.Max then
+            horizontal = math.sqrt(radius ^ 2 - vertical ^ 2)
+        end
+
+        return rootPart, radius, vertical, horizontal
+    end
+end)()
+
+local flipUpsideDown = function(part)
+    HumanoidRootPart.CFrame = CFrame.Angles(0, 0, math.pi) + HumanoidRootPart.CFrame.Position
+    local look = Vector3.new(
+        part.CFrame.LookVector.X,
+        0,
+        part.CFrame.LookVector.Z
+    ).Unit
+    local yaw = math.atan2(-look.X, -look.Z)
+    local baseRotation = CFrame.Angles(0, yaw, 0)
+    local rollFlip = CFrame.fromAxisAngle(Vector3.new(0, 0, 1), math.pi)
+    local finalRotation = baseRotation * rollFlip
+    part.CFrame = CFrame.new(part.Position) * finalRotation
+end
 
 Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
     toggleLerp(Toggles.Autofarm)
     enableLinearVelocity(Toggles.Autofarm.Value)
     toggleNoclip(Toggles.Autofarm)
-    local targetRefreshTick, target = 0, nil
+
+    local target
+    local shouldUpdateTarget = true
+
     while Toggles.Autofarm.Value do
         local deltaTime = task.wait()
 
         if Humanoid.Health == 0 then continue end
 
-        if not (controls.D - controls.A == 0 and controls.S - controls.W == 0) then
-            local flySpeed = 80 -- math.max(Humanoid.WalkSpeed, 60)
-            local targetPosition = Camera.CFrame.Rotation
-                * Vector3.new(controls.D - controls.A, 0, controls.S - controls.W)
-                * flySpeed * deltaTime
-            HumanoidRootPart.CFrame += targetPosition
-                * math.clamp(deltaTime * flySpeed / targetPosition.Magnitude, 0, 1)
+        local inputVec = Vector3.new(controls.D - controls.A, 0, controls.S - controls.W)
+        if inputVec.Magnitude ~= 0 then
+            local flySpeed = 80
+            local direction = Camera.CFrame.Rotation * inputVec.Unit
+            local moveDelta = direction * flySpeed * deltaTime
+            HumanoidRootPart.CFrame += moveDelta * math.clamp(deltaTime * flySpeed / moveDelta.Magnitude, 0, 1)
             continue
         end
 
-        if tick() - targetRefreshTick > 0.15 then
-            target = nil
-            local autofarmRadius = Options.AutofarmRadius.Value == 0 and math.huge or Options.AutofarmRadius.Value
-            local distance = autofarmRadius
-            local prioritizedDistance = distance
-            for _, mob in next, Mobs:GetChildren() do
-                if Options.IgnoreMobs.Value[mob.Name] then continue end
-                if isDead(mob) then continue end
-                if Toggles.UseWaypoint.Value and (mob.HumanoidRootPart.Position - waypoint.Position).Magnitude > autofarmRadius then continue end
-
-                local newDistance = (mob.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
-                if Options.PrioritizeMobs.Value[mob.Name] then
-                    if newDistance < prioritizedDistance then
-                        prioritizedDistance = newDistance
-                        target = mob
-                    end
-                elseif not (target and Options.PrioritizeMobs.Value[target.Name]) then
-                    if newDistance < distance then
-                        distance = newDistance
-                        target = mob
-                    end
-                end
-            end
-            targetRefreshTick = tick()
+        if shouldUpdateTarget then
+            shouldUpdateTarget = false
+            target = getAutofarmTarget()
+            task.delay(0.15, function()
+                shouldUpdateTarget = true
+            end)
         end
 
         if not target then
-            if not Toggles.UseWaypoint.Value then continue end
-        elseif target ~= waypoint and isDead(target) or Options.IgnoreMobs.Value[target.Name] then
-            targetRefreshTick = 0
+            if Toggles.UseWaypoint.Value and waypoint then
+                local targetPos = waypoint.Position
+                local horizDiff = Vector3.new(
+                    targetPos.X - HumanoidRootPart.Position.X,
+                    0,
+                    targetPos.Z - HumanoidRootPart.Position.Z
+                )
+                local horizDist = horizDiff.Magnitude
+
+                if horizDist > Options.TeleportThreshold.Value + 15 then
+                    Teleport.Func(HumanoidRootPart.CFrame.Rotation + targetPos)
+                else
+                    local speed = Options.AutofarmSpeed.Value
+                    speed = speed == 0 and math.huge or speed
+                    local alpha = math.clamp(deltaTime * speed / horizDist, 0, 1)
+                    HumanoidRootPart.CFrame += horizDiff.Unit * horizDist * alpha
+                end
+            end
             continue
         end
 
-        local targetHumanoidRootPart = target and target.HumanoidRootPart or Toggles.UseWaypoint.Value and waypoint
-        if not targetHumanoidRootPart then continue end
-
-        local targetCFrame = targetHumanoidRootPart.CFrame
-        local targetSize = targetHumanoidRootPart.Size
-
-        local boundingRadius = math.sqrt(targetSize.X ^ 2 + targetSize.Z ^ 2) / 2
-            + ((KillauraSkill.Active or Toggles.UseSkillPreemptively.Value) and 29 or 14)
-
-        local verticalOffset = Options.AutofarmVerticalOffset.Value
-        local horizontalOffset = Options.AutofarmHorizontalOffset.Value
-
-        -- local yIsMax = verticalOffset == Options.AutofarmVerticalOffset.Max
-        -- local yIsMin = verticalOffset == Options.AutofarmVerticalOffset.Min
-        -- local xIsMax = horizontalOffset == Options.AutofarmHorizontalOffset.Max
-
-        -- verticalOffset = math.clamp(verticalOffset, -boundingRadius, boundingRadius)
-        -- horizontalOffset = math.clamp(horizontalOffset, -boundingRadius, boundingRadius)
-
-        if verticalOffset == Options.AutofarmVerticalOffset.Max then
-            if horizontalOffset == Options.AutofarmHorizontalOffset.Max then
-                verticalOffset = boundingRadius * verticalRatio
-                horizontalOffset = boundingRadius * horizontalRatio
-            else
-                local root = math.sqrt(boundingRadius ^ 2 - horizontalOffset ^ 2)
-                verticalOffset = root == root and root or 0
-            end
-        elseif verticalOffset == Options.AutofarmVerticalOffset.Min then
-            local minYOffset = -targetSize.Y / 2 - 2.9
-            HumanoidRootPart.CFrame = CFrame.Angles(0, 0, math.pi) + HumanoidRootPart.CFrame.Position
-            if horizontalOffset == Options.AutofarmHorizontalOffset.Max then
-                verticalOffset = minYOffset
-                horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
-            else
-                local root = -math.sqrt(boundingRadius ^ 2 - horizontalOffset ^ 2)
-                verticalOffset = math.max(root == root and root or 0, minYOffset)
-            end
-        elseif horizontalOffset == Options.AutofarmHorizontalOffset.Max then
-            horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
+        if isDead(target) or Options.IgnoreMobs.Value[target.Name] then
+            shouldUpdateTarget = true
+            continue
         end
 
-        local targetPosition = targetCFrame.Position + Vector3.new(0, verticalOffset, 0)
-        -- if targetHumanoidRootPart:FindFirstChild('BodyVelocity') then
-        --     targetPosition += targetHumanoidRootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing()
-        -- end
+        local rootPart, radius, vertical, horizontal = calculateAutofarmOffset(target)
+        if not rootPart then continue end
 
-        if horizontalOffset > 0 then
-            local difference = HumanoidRootPart.CFrame.Position - targetCFrame.Position
-            local horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
-            if horizontalDifference.Magnitude ~= 0 then
-                targetPosition += horizontalDifference.Unit * horizontalOffset
-            end
+        if vertical < 0 then
+            flipUpsideDown(HumanoidRootPart)
         end
 
-        local difference = targetPosition - HumanoidRootPart.CFrame.Position
-        local distance = difference.Magnitude
+        local targetPos = rootPart.Position + Vector3.new(0, vertical, 0)
+
+        local diff = HumanoidRootPart.Position - rootPart.Position
+        local horizOffset = Vector3.new(diff.X, 0, diff.Z)
+
+        if horizontal > 0 and horizOffset.Magnitude ~= 0 then
+            targetPos += horizOffset.Unit * horizontal
+        end
+
+        local toTarget = targetPos - HumanoidRootPart.Position
+        local horizToTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
 
         if Options.AutofarmSpeed.Value == 0 then
             HumanoidRootPart.CFrame *= CFrame.Angles(0, math.pi / 4, 0)
-        end
-
-        local horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
-        if Options.TeleportThreshold.Value == 0 then
-            if horizontalDifference.Magnitude > boundingRadius + 15 then
-                teleportToCFrame(HumanoidRootPart.CFrame.Rotation + targetPosition, 0)
-                continue
-            end
-        elseif horizontalDifference.Magnitude > Options.TeleportThreshold.Value then
-            teleportToCFrame(HumanoidRootPart.CFrame.Rotation + targetPosition, 0)
             continue
         end
 
-        difference = targetPosition - HumanoidRootPart.CFrame.Position
-        distance = difference.Magnitude
+        if Options.TeleportMethod.Value then
+            local threshold = Options.TeleportThreshold.Value
+            threshold = (threshold == 0) and (radius + 15) or threshold
+            if horizToTarget.Magnitude > threshold then
+                Teleport.Func(HumanoidRootPart.CFrame.Rotation + targetPos, false)
+                continue
+            end
+        end
 
-        if distance == 0 then continue end
+        local totalDist = toTarget.Magnitude
+        if totalDist == 0 then continue end
 
-        HumanoidRootPart.CFrame += Vector3.new(0, targetPosition.Y - HumanoidRootPart.CFrame.Position.Y, 0)
+        HumanoidRootPart.CFrame += Vector3.new(0, toTarget.Y, 0)
 
-        horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
-        local horizontalDistance = horizontalDifference.Magnitude
-        if horizontalDistance == 0 then continue end
+        local horizDist = horizToTarget.Magnitude
+        if horizDist == 0 then continue end
 
-        local direction = horizontalDifference.Unit
+        local moveDir = horizToTarget.Unit
         local speed = Options.AutofarmSpeed.Value
         speed = speed == 0 and math.huge or speed
-        local alpha = math.clamp(deltaTime * speed / horizontalDistance, 0, 1)
 
-        HumanoidRootPart.CFrame += direction * distance * alpha
+        local alpha = math.clamp(deltaTime * speed / horizDist, 0, 1)
+        HumanoidRootPart.CFrame += moveDir * totalDist * alpha
     end
 end)
 
 Autofarm:AddSlider('AutofarmSpeed', { Text = 'Speed (0 = infinite = buggy)', Default = 100, Min = 0, Max = 300, Rounding = 0, Suffix = 'mps' })
-Autofarm:AddDropdown('TeleportMethod', { Text = 'Teleport method', Values = { 'Spawn', 'High Y', 'Shadow Step' }, Default = 1, AllowNull = true })
+Autofarm:AddDropdown('TeleportMethod', { Text = 'Teleport method', Values = { 'Spawn', 'High Y' }, Default = 1, AllowNull = true })
 Autofarm:AddSlider('TeleportThreshold', { Text = 'Teleport threshold (0 = auto)', Default = 0, Min = 0, Max = 1000, Rounding = 0, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmVerticalOffset', { Text = 'Vertical offset (min/max = auto)', Default = 60, Min = -20, Max = 60, Rounding = 1, Suffix = 'm' })
 Autofarm:AddSlider('AutofarmHorizontalOffset', { Text = 'Horizontal offset (max = auto)', Default = 40, Min = 0, Max = 40, Rounding = 1, Suffix = 'm' })
@@ -1065,7 +1108,7 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
     enableLinearVelocity(false)
     local waypoints = {}
     local nextWaypointIdx = 2
-    local targetRefreshTick = 0
+    local shouldRefreshTarget = true
     local target
     while Toggles.Autowalk.Value do
         RenderStepped:Wait()
@@ -1076,20 +1119,21 @@ Autowalk:AddToggle('Autowalk', { Text = 'Enabled' }):OnChanged(function()
             continue
         end
 
-        if tick() - targetRefreshTick > 0.15 then
+        if shouldRefreshTarget then
+            shouldRefreshTarget = false
             task.spawn(function()
                 waypoints, target = UpdateAutowalkTarget()
                 nextWaypointIdx = 2
             end)
-            targetRefreshTick = tick()
+            task.delay(0.15, function()
+                shouldRefreshTarget = true
+            end)
         end
 
         if not target then
-            continue
-        end
-
-        if isDead(target) or Options.IgnoreMobs.Value[target.Name] then
-            targetRefreshTick = 0
+            if not Toggles.UseWaypoint.Value then continue end
+        elseif target ~= waypoint and isDead(target) or Options.IgnoreMobs.Value[target.Name] then
+            shouldRefreshTarget = true
             continue
         end
 
@@ -1757,7 +1801,7 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         if not Toggles.ClickTeleport.Value then return end
         if teleporting then return end
         teleporting = true
-        teleportToCFrame(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0))
+        Teleport.Func(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0))
         teleporting = false
     end
     return function(value)
@@ -1954,7 +1998,7 @@ AdditionalCheats:AddDropdown('FireProximityPrompts', {
 
     local proximityPrompt = proximityPrompts[proximityPromptName]
     if proximityPrompt.Parent and proximityPrompt.Parent.Parent then
-        teleportToCFrame(proximityPrompt.Parent.Parent.CFrame)
+        Teleport.Func(proximityPrompt.Parent.Parent.CFrame)
         fireproximityprompt(proximityPrompt)
     end
 end)
@@ -2014,7 +2058,7 @@ Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs'
     end
 end)
 
-PlayerUI.MainFrame.TabFrames.Settings.AnimPacks.ChildAdded:Connect(function(entry)
+PlayerUI.MainFrame.TabFrames.Settings.Attachments.AnimPacks.ChildAdded:Connect(function(entry)
     entry.Activated:Connect(function()
         local animPackName = (function()
             for _, item in next, Database.CashShop:GetChildren() do
@@ -2369,8 +2413,8 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
         local difference = targetCFrame.Position - HumanoidRootPart.CFrame.Position
 
         local horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
-        if horizontalDifference.Magnitude > 70 then
-            teleportToCFrame(targetCFrame)
+        if Options.TeleportMethod.Value and horizontalDifference.Magnitude > 70 then
+            Teleport.Func(targetCFrame)
             continue
         end
 
