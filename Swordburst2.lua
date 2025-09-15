@@ -105,6 +105,10 @@ local InvokeFunction = function(...)
     return result
 end
 
+if workspace:GetAttribute('DungeonFloor') then
+    Event:FireServer('UniqueFloorTypes', { 'Dungeons', 'Start' })
+end
+
 local PlayerUI = LocalPlayer:WaitForChild('PlayerGui'):WaitForChild('CardinalUI'):WaitForChild('PlayerUI')
 local Level = PlayerUI:WaitForChild('HUD'):WaitForChild('LevelBar'):WaitForChild('Level')
 local Chat = PlayerUI:WaitForChild('Chat')
@@ -1527,7 +1531,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
     toggleSwingDamage(true)
 end)
 
-Killaura:AddSlider('KillauraDelay', { Text = 'Delay (breaks damage under 0.3)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
+Killaura:AddSlider('KillauraDelay', { Text = 'Delay (debounces under 0.3)', Default = 0.3, Min = 0, Max = 2, Rounding = 2, Suffix = 's' })
 Killaura:AddSlider('KillauraThreads', { Text = 'Threads (0 = auto)', Default = 0, Min = 0, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
 Killaura:AddSlider('KillauraRange', { Text = 'Range (0 = auto)', Default = 0, Min = 0, Max = 200, Rounding = 0, Suffix = 'm' })
 Killaura:AddToggle('AttackPlayers', { Text = 'Attack players' })
@@ -2323,17 +2327,12 @@ local PlayersBox = Misc:AddRightGroupbox('Players')
 
 local selectedPlayer
 
-local bypassedViewingProfile = pcall(function()
-    local signal = LocalPlayer:GetAttributeChangedSignal('ViewingProfile')
-    getconnections(signal)[1]:Disable()
-end)
-
 PlayersBox:AddDropdown('PlayerList', { Text = 'Player list', Values = {}, SpecialType = 'Player' })
 :OnChanged(function(player)
     selectedPlayer = player
 
-    if bypassedViewingProfile and Toggles.ViewPlayersInventory and Toggles.ViewPlayersInventory.Value then
-        LocalPlayer:SetAttribute('ViewingProfile', player.Name)
+    if RequiredServices and Toggles.ViewPlayersInventory and Toggles.ViewPlayersInventory.Value then
+        debug.setupvalue(RequiredServices.InventoryUI.GetInventoryData, 2, Profiles[player.Name])
     end
 end)
 
@@ -2348,7 +2347,7 @@ PlayersBox:AddButton({ Text = "View player's stats", Func = function()
         end
 
         local stats = {
-            AnimPacks = 'no',
+            -- AnimPacks = 'no',
             Gamepasses = 'no',
             Skills = 'no'
         }
@@ -2368,7 +2367,7 @@ PlayersBox:AddButton({ Text = "View player's stats", Func = function()
 				.. `level {getLevel(profile.Stats.Exp.Value)},\n`
 				.. `has {profile.Stats.Vel.Value} vel,\n`
 				.. `floor {#profile.Locations:GetChildren() - 2},\n`
-				.. `{stats.AnimPacks} animation packs bought,\n`
+				-- .. `{stats.AnimPacks} animation packs bought,\n`
 				.. `{stats.Gamepasses} gamepasses bought,\n`
 				.. `and {stats.Skills} special skills unlocked`,
 			10
@@ -2376,12 +2375,16 @@ PlayersBox:AddButton({ Text = "View player's stats", Func = function()
     end)
 end })
 
-if bypassedViewingProfile then
+if RequiredServices then
     PlayersBox:AddToggle('ViewPlayersInventory', { Text = `View player's inventory` }):OnChanged(function(value)
-        local playerName = value and Options.PlayerList.Value.Name or nil
-        if LocalPlayer:GetAttribute('ViewingProfile') ~= playerName then
-            LocalPlayer:SetAttribute('ViewingProfile', playerName)
+        if not value then
+            debug.setupvalue(RequiredServices.InventoryUI.GetInventoryData, 2, Profile)
+            return
         end
+
+        local player = Options.PlayerList.Value
+        if not player then return end
+        debug.setupvalue(RequiredServices.InventoryUI.GetInventoryData, 2, Profiles[player.Name])
     end)
 end
 
@@ -2790,7 +2793,7 @@ game:GetService('GuiService').ErrorMessageChanged:Connect(function(message)
     sendWebhook(Options.KickWebhook.Value, Body, Toggles.PingInMessage.Value)
 end)
 
-local SwingCheats = Misc:AddRightGroupbox('Swing cheats (can break damage)')
+local SwingCheats = Misc:AddRightGroupbox('Swing cheats (can debounce)')
 
 if RequiredServices then
     local Actions = RequiredServices.Actions
