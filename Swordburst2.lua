@@ -151,20 +151,19 @@ end)
 
 if not (success and RequiredServices) then
     success, RequiredServices = pcall(function()
-        for _, object in next, getreg() do
-            if not (type(object) == 'table' and rawget(object, 'Services')) then
-                continue
+        local RequiredServices = function()
+            for _, object in next, getreg() do
+                if type(object) == 'table' and rawget(object, 'Services') then
+                    return object.Services
+                end
             end
-            local UISafeInit = object.Services.UI.SafeInit
-            RequiredServices.InventoryUI = debug.getupvalue(UISafeInit, 18)
-            RequiredServices.StatsUI = debug.getupvalue(UISafeInit, 40)
-            RequiredServices.TradeUI = debug.getupvalue(UISafeInit, 31)
-            return object.Services
         end
+        local UISafeInit = RequiredServices.UI.SafeInit
+        RequiredServices.InventoryUI = debug.getupvalue(UISafeInit, 18)
+        RequiredServices.StatsUI = debug.getupvalue(UISafeInit, 40)
+        RequiredServices.TradeUI = debug.getupvalue(UISafeInit, 31)
+        return RequiredServices
     end)
-    if not success then
-        RequiredServices = nil
-    end
 end
 
 task.spawn(function()
@@ -731,11 +730,11 @@ end)
 
 local mobList = (function()
     if RequiredServices then
-        local mobList = {}
         local MobDataCache = RequiredServices.StatsUI.MobDataCache
         if type(MobDataCache) ~= 'table' then
-            MobDataCache = {}
+            return {}
         end
+        local mobList = {}
         for mobName, _ in next, MobDataCache do
             table.insert(mobList, mobName)
         end
@@ -1450,6 +1449,8 @@ local attack = function(target)
     task.delay(threads * Options.KillauraDelay.Value, function()
         onCooldown[target] = nil
     end)
+
+    return true
 end
 
 local swingFunction = (function()
@@ -1467,6 +1468,8 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
         task.wait(0.01)
 
         if Humanoid.Health == 0 then continue end
+
+        local attacked
 
         for _, target in next, Mobs:GetChildren() do
             if onCooldown[target] then continue end
@@ -1486,7 +1489,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             elseif (targetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
                 continue
             end
-            attack(target)
+            attacked = attack(target)
         end
 
         if Toggles.AttackPlayers.Value then
@@ -1512,16 +1515,16 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
                 elseif (targetHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
                     continue
                 end
-                attack(target)
+                attacked = attack(target)
             end
         end
 
         if swingFunction then -- this is preferred since it ignores the swinging state
-            if next(onCooldown) then
+            if attacked then
                 task.spawn(swingFunction)
             end
         elseif RequiredServices then
-            if next(onCooldown) then
+            if attacked then
                 task.spawn(RequiredServices.Actions.StartSwing)
             else
                 task.spawn(RequiredServices.Actions.StopSwing)
