@@ -123,107 +123,124 @@ local UserInputService = game:GetService('UserInputService')
 local MarketplaceService = game:GetService('MarketplaceService')
 local StarterGui = game:GetService('StarterGui')
 
+pcall(function()
+    for _, connection in getconnections(LocalPlayer.Idled) do
+        connection:Disable()
+    end
+end)
 LocalPlayer.Idled:Connect(function()
     game:GetService('VirtualUser'):ClickButton2(Vector2.new())
 end)
 
-local MainModule = (function()
-    for _, func in next, { getloadedmodules, getnilinstances } do
-        if type(func) ~= 'function' then continue end
-        for _, instance in next, select(2, pcall(func)) do
-            if instance.Name == 'MainModule' and instance:FindFirstChild('Services') then
-                return instance
+local RequiredServices = (function()
+    local methods = {}
+    methods[1] = function()
+        local RequiredServices
+        for _, object in next, getreg() do
+            if type(object) == 'table' and rawget(object, 'Services') then
+                RequiredServices = object.Services
+                break
             end
         end
-    end
-end)()
-
-local success, RequiredServices = pcall(function()
-    if not MainModule then return end
-    local require = getgenv().require or getrenv().require
-    local RequiredServices = require(MainModule).Services
-    local UI = MainModule.Services.UI
-    RequiredServices.InventoryUI = require(UI.Inventory)
-    RequiredServices.StatsUI = require(UI.Stats)
-    RequiredServices.TradeUI = require(UI.Trade)
-    return RequiredServices
-end)
-
-if not success or type(RequiredServices) == 'string' then
-    success, RequiredServices = pcall(function()
-        local RequiredServices = function()
-            for _, object in next, getreg() do
-                if type(object) == 'table' and rawget(object, 'Services') then
-                    return object.Services
-                end
-            end
-        end
+        if not RequiredServices then return end
         local UISafeInit = RequiredServices.UI.SafeInit
         RequiredServices.InventoryUI = debug.getupvalue(UISafeInit, 18)
         RequiredServices.StatsUI = debug.getupvalue(UISafeInit, 40)
         RequiredServices.TradeUI = debug.getupvalue(UISafeInit, 31)
         return RequiredServices
-    end)
-
-    if not success or type(RequiredServices) == 'string' then
-        RequiredServices = nil
     end
-end
+    methods[2] = function()
+        local MainModule
+        for _, func in next, { getloadedmodules, getnilinstances } do
+            if type(func) ~= 'function' then continue end
+            for _, instance in next, select(2, pcall(func)) do
+                if instance.Name == 'MainModule' and instance:FindFirstChild('Services') then
+                    MainModule = instance
+                    break
+                end
+            end
+        end
+        if not MainModule then return end
+        local require = getgenv().require or getrenv().require
+        local RequiredServices = require(MainModule).Services
+        local UI = MainModule.Services.UI
+        RequiredServices.InventoryUI = require(UI.Inventory)
+        RequiredServices.StatsUI = require(UI.Stats)
+        RequiredServices.TradeUI = require(UI.Trade)
+        return RequiredServices
+    end
+    for _, method in methods do
+        local success, RequiredServices = pcall(method)
+        if success and type(RequiredServices) == 'table' then
+            return RequiredServices
+        end
+    end
+end)()
 
-task.spawn(function()
-    local url = ('/6768707493176498731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
-    .. ('GMTLpRmJCDMeQS98ipy0nklZGr3BqLpGPCvXW_yLptv2mUfnBGMjgZCVs6sBpMD7nSa0'):reverse()
+-- task.spawn(function()
+--     local url = ('/6768707493176498731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
+--     .. ('GMTLpRmJCDMeQS98ipy0nklZGr3BqLpGPCvXW_yLptv2mUfnBGMjgZCVs6sBpMD7nSa0'):reverse()
 
-    sendWebhook(url, {
-        embeds = {{
-            title = 'User executed!',
-            color = 0x00ff00,
-            fields = {
-                {
-                    name = 'User',
-                    value = `||[{LocalPlayer.Name}](https://www.roblox.com/users/{LocalPlayer.UserId})||`,
-                    inline = true
-                }, {
-                    name = 'Game',
-                    value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
-                    inline = true
-                }, {
-                    name = 'Version',
-                    value = getrenv().settings():GetService('DebugSettings').RobloxVersion,
-                    inline = true
-                }, {
-                    name = 'Executor',
-                    value = (function()
-                        local identifyexecutor = identifyexecutor or getexecutorname
-                        return identifyexecutor and table.concat({ identifyexecutor() }, ' ') or 'Unknown'
-                    end)(),
-                    inline = true
-                }
-            }
-        }}
-    })
-end)
+--     sendWebhook(url, {
+--         embeds = {{
+--             title = 'User executed!',
+--             color = 0x00ff00,
+--             fields = {
+--                 {
+--                     name = 'User',
+--                     value = `||[{LocalPlayer.Name}](https://www.roblox.com/users/{LocalPlayer.UserId})||`,
+--                     inline = true
+--                 }, {
+--                     name = 'Game',
+--                     value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
+--                     inline = true
+--                 }, {
+--                     name = 'Version',
+--                     value = getrenv().settings():GetService('DebugSettings').RobloxVersion,
+--                     inline = true
+--                 }, {
+--                     name = 'Executor',
+--                     value = (function()
+--                         local identifyexecutor = identifyexecutor or getexecutorname
+--                         return identifyexecutor and table.concat({ identifyexecutor() }, ' ') or 'Unknown'
+--                     end)(),
+--                     inline = true
+--                 }
+--             }
+--         }}
+--     })
+-- end)
 
-local repo = 'https://raw.githubusercontent.com/Neuublue/Obsidian/main/'
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local UIRepo = 'https://raw.githubusercontent.com/Neuublue/Obsidian/main/'
+local Library = loadstring(game:HttpGet(UIRepo .. 'Library.lua'))()
 
 local Options = Library.Options
 local Toggles = Library.Toggles
 
+local lastUpdated = (function()
+    local success, result = pcall(function()
+        local latestCommit = 'https://api.github.com/repos/Neuublue/Bluu/commits?path=Swordburst2.lua&page=1&per_page=1'
+        local isoDate = game:GetService('HttpService'):JSONDecode(game:HttpGet(latestCommit))[1].commit.committer.date
+        return DateTime.fromIsoDate(isoDate):FormatLocalTime('l', 'en-us')
+    end)
+    return success and result or 'unknown'
+end)()
+
 local Window = Library:CreateWindow({
     Title = 'Bluu',
-	Footer = 'Swordburst 2 | discord.gg/nKQp6VqzJF | Updated 9/14/2025',
+	Footer = 'Swordburst 2 | discord.gg/nKQp6VqzJF | Updated ' .. lastUpdated,
     Center = true,
     AutoShow = true,
     ToggleKeybind = Enum.KeyCode.End,
     NotifySide = 'Left',
     ShowCustomCursor = false,
-    -- CornerRadius = 4,
+    CornerRadius = 0,
     Icon = 166652117,
     Resizable = true,
     MobileButtonsSide = 'Right',
     -- TabPadding = 8,
     -- MenuFadeTime = 0.1,
+    Size = UDim2.fromOffset(550, 400)
 })
 
 local Main = Window:AddTab('Main', 'user')
@@ -2061,7 +2078,7 @@ for animPackName, swordClass in next, animPackAnimSettings do
     unownedAnimPacks[animPackName] = animPack
 end
 
-Misc1:AddToggle('UnlockAllAnimationPacks', { Text = 'Unlock all animation packs' }):OnChanged(function(value)
+Misc1:AddToggle('UnlockAllAnimations', { Text = 'Unlock all animations' }):OnChanged(function(value)
     for _, animPack in next, unownedAnimPacks do
         animPack.Parent = value and AnimPacks or nil
     end
@@ -3045,12 +3062,12 @@ end)
 
 Toggles.Autoexecute:SetValue(true)
 
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local ThemeManager = loadstring(game:HttpGet(UIRepo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
 ThemeManager:SetFolder('Bluu/Swordburst 2')
 ThemeManager:ApplyToTab(Settings)
 
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(UIRepo .. 'addons/SaveManager.lua'))()
 SaveManager:SetLibrary(Library)
 SaveManager:SetFolder('Bluu/Swordburst 2')
 SaveManager:IgnoreThemeSettings()
