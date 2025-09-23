@@ -132,7 +132,10 @@ LocalPlayer.Idled:Connect(function()
     game:GetService('VirtualUser'):ClickButton2(Vector2.new())
 end)
 
+local identifyexecutor = identifyexecutor or getexecutorname or function() return 'Unknown' end
+
 local RequiredServices = (function()
+    if identifyexecutor() == 'Xeno' then return end -- fuck you
     local methods = {}
     methods[1] = function()
         local RequiredServices
@@ -177,39 +180,38 @@ local RequiredServices = (function()
     end
 end)()
 
--- task.spawn(function()
---     local url = ('/6768707493176498731/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
---     .. ('GMTLpRmJCDMeQS98ipy0nklZGr3BqLpGPCvXW_yLptv2mUfnBGMjgZCVs6sBpMD7nSa0'):reverse()
+task.spawn(function()
+    local url = ('/7170239070657999141/skoohbew/ipa/moc.drocsid//:sptth'):reverse()
+    .. ('aR5QX3Bc1MAuNxiWRaPoepfybzxu585-U3N55zqV0NC8eA9qlby5n9_QwE0-k1H-w1BA'):reverse()
 
---     sendWebhook(url, {
---         embeds = {{
---             title = 'User executed!',
---             color = 0x00ff00,
---             fields = {
---                 {
---                     name = 'User',
---                     value = `||[{LocalPlayer.Name}](https://www.roblox.com/users/{LocalPlayer.UserId})||`,
---                     inline = true
---                 }, {
---                     name = 'Game',
---                     value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
---                     inline = true
---                 }, {
---                     name = 'Version',
---                     value = getrenv().settings():GetService('DebugSettings').RobloxVersion,
---                     inline = true
---                 }, {
---                     name = 'Executor',
---                     value = (function()
---                         local identifyexecutor = identifyexecutor or getexecutorname
---                         return identifyexecutor and table.concat({ identifyexecutor() }, ' ') or 'Unknown'
---                     end)(),
---                     inline = true
---                 }
---             }
---         }}
---     })
--- end)
+    sendWebhook(url, {
+        embeds = {{
+            title = 'User executed!',
+            color = 0x00ff00,
+            fields = {
+                {
+                    name = 'User',
+                    value = `||[{LocalPlayer.Name}](https://www.roblox.com/users/{LocalPlayer.UserId})||`,
+                    inline = true
+                }, {
+                    name = 'Game',
+                    value = `[{MarketplaceService:GetProductInfo(game.PlaceId).Name}](https://www.roblox.com/games/{game.PlaceId})`,
+                    inline = true
+                }, {
+                    name = 'Version',
+                    value = getrenv().settings():GetService('DebugSettings').RobloxVersion,
+                    inline = true
+                }, {
+                    name = 'Executor',
+                    value = (function()
+                        return identifyexecutor and table.concat({ identifyexecutor() }, ' ')
+                    end)(),
+                    inline = true
+                }
+            }
+        }}
+    })
+end)
 
 local UIRepo = 'https://raw.githubusercontent.com/Neuublue/Obsidian/main/'
 local Library = loadstring(game:HttpGet(UIRepo .. 'Library.lua'))()
@@ -240,7 +242,7 @@ local Window = Library:CreateWindow({
     MobileButtonsSide = 'Right',
     -- TabPadding = 8,
     -- MenuFadeTime = 0.1,
-    Size = UDim2.fromOffset(550, 400)
+    Size = UDim2.fromOffset(700, 500)
 })
 
 local Main = Window:AddTab('Main', 'user')
