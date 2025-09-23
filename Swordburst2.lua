@@ -320,7 +320,8 @@ Teleport.Methods['High Y'] = {
 }
 
 Teleport.Func = function(cframe, part2)
-    local method = Teleport.Methods[Options.TeleportMethod.Value]
+    local methodName = Options.TeleportMethod.Value or 'Spawn'
+    local method = Teleport.Methods[methodName]
     method.Part1(cframe)
     if part2 == false then return end
     method.Part2(cframe)
@@ -671,7 +672,9 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
                 )
                 local horizDist = horizDiff.Magnitude
 
-                if horizDist > Options.TeleportThreshold.Value + 15 then
+                local threshold = Options.TeleportThreshold.Value
+                threshold = (threshold == 0) and 100 or threshold
+                if Options.TeleportMethod.Value and horizDist > threshold then
                     Teleport.Func(HumanoidRootPart.CFrame.Rotation + targetPos)
                 else
                     local speed = Options.AutofarmSpeed.Value
@@ -2440,7 +2443,9 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
         local difference = targetCFrame.Position - HumanoidRootPart.CFrame.Position
 
         local horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
-        if Options.TeleportMethod.Value and horizontalDifference.Magnitude > 70 then
+        local threshold = Options.TeleportThreshold.Value
+        threshold = (threshold == 0) and 100 or threshold
+        if Options.TeleportMethod.Value and horizontalDifference.Magnitude > 100 then
             Teleport.Func(targetCFrame)
             continue
         end
