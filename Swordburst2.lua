@@ -169,6 +169,9 @@ local RequiredServices = (function()
                     break
                 end
             end
+            if MainModule then
+                break
+            end
         end
         if not MainModule then return end
         local require = getgenv().require or getrenv().require
@@ -283,61 +286,6 @@ local awaitEventTimeout = function(event, callback, timeout, yield)
     if yield == false then task.spawn(await) else await() end
 end
 
-local Teleport = {}
-Teleport.OnCooldown = false
-Teleport.Methods = {}
-Teleport.Methods['Spawn'] = {
-    Cooldown = 0.5,
-    Part1 = function(cframe)
-        HumanoidRootPart.CFrame = cframe
-        Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
-    end,
-    Part2 = function(cframe)
-        local cframeOld = cframe
-        local steppedConnection = Stepped:Connect(function()
-            cframeOld = HumanoidRootPart.CFrame
-        end)
-        awaitEventTimeout(
-            HumanoidRootPart:GetPropertyChangedSignal('CFrame'),
-            function(value)
-                HumanoidRootPart.CFrame = cframeOld
-                steppedConnection:Disconnect()
-                return true
-            end,
-            Teleport.Methods['Spawn'].Cooldown
-        )
-    end
-}
-Teleport.Methods['High Y'] = {
-    Cooldown = 0.5,
-    Part1 = function(cframe)
-        local targetCframe = HumanoidRootPart.CFrame
-            + Vector3.new(0, 1e6 - HumanoidRootPart.CFrame.Position.Y, 0)
-        local steppedConnection = Stepped:Connect(function()
-            HumanoidRootPart.CFrame = targetCframe
-        end)
-        task.wait(Teleport.Methods['High Y'].Cooldown / 2)
-        targetCframe = cframe
-        task.wait(Teleport.Methods['High Y'].Cooldown / 2)
-        steppedConnection:Disconnect()
-    end,
-    Part2 = function()
-
-    end
-}
-
-Teleport.Func = function(cframe, part2)
-    local methodName = Options.TeleportMethod.Value or 'Spawn'
-    local method = Teleport.Methods[methodName]
-    method.Part1(cframe)
-    if part2 == false then return end
-    method.Part2(cframe)
-end
-
-local fastRespawn = function()
-    Event:FireServer('Profile', { 'Respawn' })
-end
-
 local lastDeathCFrame
 
 local swingDamageEnabled = true
@@ -361,10 +309,6 @@ local onHumanoidAdded = function()
     Humanoid.Died:Connect(function()
         lastDeathCFrame = HumanoidRootPart.CFrame
 
-        if Toggles.FastRespawns.Value then
-            fastRespawn()
-        end
-
         if Toggles.DisableOnDeath.Value then
             if Toggles.Autofarm.Value then
                 Toggles.Autofarm:SetValue(false)
@@ -385,22 +329,6 @@ local onHumanoidAdded = function()
 
     linearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
 
-    task.spawn(InvokeFunction, 'Equipment', {
-        'Wear', {
-            Name = 'Blue Novice Armor',
-            Value = Equip.Clothing.Value
-        }
-    })
-
-    if Equip.Right.Value ~= 0 then
-        task.spawn(InvokeFunction, 'Equipment', {
-            'EquipWeapon', {
-                Name = 'Steel Longsword',
-                Value = Equip.Left.Value
-            }, 'Left'
-        })
-    end
-
     toggleSwingDamage(swingDamageEnabled)
     Character.ChildAdded:Connect(function(child)
         if child.Name == 'RightWeapon' or child.Name == 'LeftWeapon' then
@@ -411,19 +339,12 @@ local onHumanoidAdded = function()
     Stamina.Changed:Connect(function(value)
         if not Toggles.ResetOnLowStamina.Value then return end
         if not KillauraSkill.Active and value < KillauraSkill.Cost then
-            fastRespawn()
+            Humanoid.Health = 0
         end
     end)
 
     if lastDeathCFrame and Toggles.ReturnOnDeath.Value then
-        if Profile:FindFirstChild('Checkpoint') then
-            awaitEventTimeout(game:GetService('CollectionService').TagAdded, function(tag)
-                return tag == 'Teleporting'
-            end, 3)
-            HumanoidRootPart.CFrame = lastDeathCFrame
-        else
-            Teleport.Func(lastDeathCFrame)
-        end
+        HumanoidRootPart.CFrame = lastDeathCFrame
     end
     lastDeathCFrame = nil
 end
@@ -437,7 +358,8 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
     Entity = Character:WaitForChild('Entity', 2)
     if not Entity then
-        return fastRespawn()
+        Humanoid.Health = 0
+        return
     end
     Health = Entity:WaitForChild('Health')
     Stamina = Entity:WaitForChild('Stamina')
@@ -630,22 +552,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
 
         if not target then
             if Toggles.UseWaypoint.Value and waypoint then
-                local targetPos = waypoint.Position
-                local horizDiff = Vector3.new(
-                    targetPos.X - HumanoidRootPart.Position.X,
-                    0,
-                    targetPos.Z - HumanoidRootPart.Position.Z
-                )
-                local horizDist = horizDiff.Magnitude
-
-                if Options.TeleportMethod.Value and horizDist > Options.TeleportThreshold.Value then
-                    Teleport.Func(HumanoidRootPart.CFrame.Rotation + targetPos)
-                else
-                    local speed = Options.AutofarmSpeed.Value
-                    speed = speed == Options.AutofarmSpeed.Max and math.huge or speed
-                    local alpha = math.clamp(deltaTime * speed / horizDist, 0, 1)
-                    HumanoidRootPart.CFrame += horizDiff.Unit * horizDist * alpha
-                end
+                HumanoidRootPart.CFrame = HumanoidRootPart.CFrame.Rotation + waypoint.Position
             end
             continue
         end
@@ -664,9 +571,9 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
 
         local targetPos = rootPart.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
 
-        if rootPart:FindFirstChild('BodyVelocity') then
-            targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
-        end
+        -- if rootPart:FindFirstChild('BodyVelocity') then
+        --     targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
+        -- end
 
         local diff = HumanoidRootPart.Position - rootPart.Position
         local horizOffset = Vector3.new(diff.X, 0, diff.Z)
@@ -680,13 +587,6 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
 
         if Options.AutofarmSpeed.Value == Options.AutofarmSpeed.Max then
             HumanoidRootPart.CFrame *= CFrame.Angles(0, math.pi / 8, 0)
-        end
-
-        if Options.TeleportMethod.Value then
-            if horizToTarget.Magnitude > Options.TeleportThreshold.Value then
-                Teleport.Func(HumanoidRootPart.CFrame.Rotation + targetPos, false)
-                continue
-            end
         end
 
         local totalDist = toTarget.Magnitude
@@ -708,7 +608,7 @@ end)
 
 Autofarm:AddSlider('AutofarmSpeed', {
     Text = 'Speed',
-    Default = 100,
+    Default = 300,
     Min = 0,
     Max = 300,
     Rounding = 0,
@@ -717,28 +617,11 @@ Autofarm:AddSlider('AutofarmSpeed', {
 		if value == slider.Max then return 'Infinite' end
 	end
 })
-Autofarm:AddDropdown('TeleportMethod', {
-    Text = 'Teleport method',
-    Values = { 'Spawn', 'High Y' },
-    Default = 1,
-    AllowNull = true
-})
-Autofarm:AddSlider('TeleportThreshold', {
-    Text = 'Teleport threshold',
-    Default = 100,
-    Min = 0,
-    Max = 1000,
-    Rounding = 0,
-    Suffix = 'm',
-    -- FormatDisplayValue = function(slider, value)
-    --     if value == slider.Max then return 'Auto' end
-	-- end
-})
 Autofarm:AddSlider('AutofarmVerticalOffset', {
     Text = 'Vertical offset',
-    Default = -15,
-    Min = -30,
-    Max = 30,
+    Default = -14.7,
+    Min = -60,
+    Max = 60,
     Rounding = 1,
     Suffix = 'm',
     -- FormatDisplayValue = function(slider, value)
@@ -1114,9 +997,9 @@ local UpdateAutowalkTarget = function()
     if target then
         local rootPart = target.HumanoidRootPart
         local targetPos = rootPart.CFrame.Position
-        if rootPart:FindFirstChild('BodyVelocity') then
-            targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
-        end
+        -- if rootPart:FindFirstChild('BodyVelocity') then
+        --     targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
+        -- end
 
         local horizontalOffset = Options.AutowalkHorizontalOffset.Value
 
@@ -1295,17 +1178,18 @@ local leftSword = getItemById(Equip.Left.Value)
 
 KillauraSkill.GetSword = function(class)
     local self = KillauraSkill
-    if class and self.Sword and self.Sword.Parent then
-        return self.Sword
-    end
     class = class or self.Class
-    if rightSword and Items[rightSword.Name].Class.Value == class then
+    local inDatabase = Items[rightSword.Name]
+    if rightSword and inDatabase.Class.Value == class and inDatabase.Level.Value <= getLevel() then
         self.Sword = rightSword
         return rightSword
     end
     for _, item in next, Inventory:GetChildren() do
-        local inDatabase = Items[item.Name]
-        if inDatabase.Type.Value == 'Weapon' and inDatabase.Class.Value == class then
+        inDatabase = Items[item.Name]
+        if inDatabase.Type.Value == 'Weapon'
+            and inDatabase.Class.Value == class
+            and inDatabase.Level.Value <= getLevel()
+        then
             self.Sword = item
             return item
         end
@@ -1402,7 +1286,7 @@ KillauraSkill._use = function()
         self.LastHit = false
         self.Active = false
         if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
-            fastRespawn()
+            Humanoid.Health = 0
         end
         task.wait(self.Cooldown - 3)
         self.OnCooldown = false
@@ -1429,7 +1313,9 @@ KillauraSkill.Use = function()
     if self.Sword ~= rightSword then
         local rightSwordOld = rightSword
         local leftSwordOld = leftSword
-        InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = self.Sword.Value }, 'Right' })
+
+        InvokeFunction('Equipment', { 'EquipWeapon', self.Sword, 'Right' })
+
         self._use()
         if rightSwordOld then
             local staminaOld = Stamina.Value
@@ -1439,9 +1325,9 @@ KillauraSkill.Use = function()
                 end
                 staminaOld = value
             end, 0.1)
-            InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = rightSwordOld.Value }, 'Right' })
+            InvokeFunction('Equipment', { 'EquipWeapon', rightSwordOld, 'Right' })
             if leftSwordOld then
-                InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = leftSwordOld.Value }, 'Left' })
+                InvokeFunction('Equipment', { 'EquipWeapon', leftSwordOld, 'Left' })
             end
         end
         return
@@ -1452,7 +1338,7 @@ KillauraSkill.Use = function()
     end
 
     local leftSwordOld = leftSword
-    InvokeFunction('Equipment', { 'Unequip', { Name = 'Steel Longsword', Value = leftSwordOld.Value } })
+    InvokeFunction('Equipment', { 'Unequip', leftSwordOld })
     self._use()
     local staminaOld = Stamina.Value
     awaitEventTimeout(Stamina.Changed, function(value)
@@ -1461,7 +1347,7 @@ KillauraSkill.Use = function()
         end
         staminaOld = value
     end, 0.1)
-    InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Longsword', Value = leftSwordOld.Value }, 'Left' })
+    InvokeFunction('Equipment', { 'EquipWeapon', leftSwordOld, 'Left' })
 end
 
 local dealDamage = (function()
@@ -1489,7 +1375,7 @@ local attack = function(target)
     local threads = getKillauraThreads(target.Entity)
 
     for _ = 1, threads do
-        dealDamage(target, KillauraSkill.Active and KillauraSkill.Name)
+        dealDamage(target, KillauraSkill.Active and KillauraSkill.Name or nil)
     end
 
     onCooldown[target] = true
@@ -1523,9 +1409,9 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             if isDead(target) then continue end
             local rootPart = target.HumanoidRootPart
             local targetPos = rootPart.Position
-            if rootPart:FindFirstChild('BodyVelocity') then
-                targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
-            end
+            -- if rootPart:FindFirstChild('BodyVelocity') then
+            --     targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
+            -- end
             if (targetPos - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
                 continue
             end
@@ -1878,7 +1764,7 @@ AdditionalCheats:AddToggle('ClickTeleport', { Text = 'Click teleport' }):OnChang
         if not Toggles.ClickTeleport.Value then return end
         if teleporting then return end
         teleporting = true
-        Teleport.Func(HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0))
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame.Rotation + mouse.Hit.Position + Vector3.new(0, 3, 0)
         teleporting = false
     end
     return function(value)
@@ -2075,7 +1961,7 @@ AdditionalCheats:AddDropdown('FireProximityPrompts', {
 
     local proximityPrompt = proximityPrompts[proximityPromptName]
     if proximityPrompt.Parent and proximityPrompt.Parent.Parent then
-        Teleport.Func(proximityPrompt.Parent.Parent.CFrame)
+        HumanoidRootPart.CFrame = proximityPrompt.Parent.Parent.CFrame
         fireproximityprompt(proximityPrompt)
     end
 end)
@@ -2253,10 +2139,7 @@ local equipBestWeaponAndArmor = function()
     for _, item in next, Inventory:GetChildren() do
         local inDatabase = Items[item.Name]
 
-        if not Toggles.WeaponAndArmorLevelBypass.Value and (
-            inDatabase:FindFirstChild('Level')
-            and inDatabase.Level.Value or 0
-        ) > getLevel() then
+        if (inDatabase:FindFirstChild('Level') and inDatabase.Level.Value or 0) > getLevel() then
             continue
         end
 
@@ -2278,70 +2161,17 @@ local equipBestWeaponAndArmor = function()
     end
 
     if bestArmor and Equip.Clothing.Value ~= bestArmor.Value then
-        task.spawn(InvokeFunction, 'Equipment', { 'Wear', { Name = 'Black Novice Armor', Value = bestArmor.Value } })
+        task.spawn(InvokeFunction, 'Equipment', { 'Wear', bestArmor })
     end
 
     if bestWeapon and Equip.Right.Value ~= bestWeapon.Value then
-        InvokeFunction('Equipment', { 'EquipWeapon', { Name = 'Steel Katana', Value = bestWeapon.Value }, 'Right' })
-    end
-end
-
-Misc2:AddToggle('WeaponAndArmorLevelBypass', { Text = 'Weapon and armor level bypass' }):OnChanged(equipBestWeaponAndArmor)
-
-if RequiredServices then
-    local HasRequiredLevelOld = RequiredServices.InventoryUI.HasRequiredLevel
-    RequiredServices.InventoryUI.HasRequiredLevel = function(...)
-        if not Toggles.WeaponAndArmorLevelBypass.Value then
-            return HasRequiredLevelOld(...)
-        end
-
-        local item = ...
-        if item.Type.Value == 'Weapon' or item.Type.Value == 'Clothing' then
-            return true
-        end
-
-        return HasRequiredLevelOld(...)
-    end
-
-    local ItemActionOld = RequiredServices.InventoryUI.itemAction
-    RequiredServices.InventoryUI.itemAction = function(...)
-        if not Toggles.WeaponAndArmorLevelBypass.Value then
-            return ItemActionOld(...)
-        end
-
-        local itemContainer, action = ...
-        if itemContainer.Type == 'Weapon' and (action == 'Equip Right' or action == 'Equip Left') then
-            if itemContainer.class == '1HSword' then
-                itemContainer.item = {
-                    Name = 'Steel Longsword',
-                    Value = itemContainer.item.Value
-                }
-            else
-                itemContainer.item = {
-                    Name = 'Steel Katana',
-                    Value = itemContainer.item.Value
-                }
-            end
-        elseif itemContainer.Type == 'Clothing' and action == 'Wear' then
-            itemContainer.item = {
-                Name = 'Black Novice Armor',
-                Value = itemContainer.item.Value
-            }
-        end
-
-        return ItemActionOld(...)
+        InvokeFunction('Equipment', { 'EquipWeapon', bestWeapon, 'Right' })
     end
 end
 
 Misc2:AddToggle('EquipBestWeaponAndArmor', { Text = 'Equip best weapon and armor' }):OnChanged(equipBestWeaponAndArmor)
 Inventory.ChildAdded:Connect(equipBestWeaponAndArmor)
 Level.Changed:Connect(equipBestWeaponAndArmor)
-
-local resetBindable = Instance.new('BindableEvent')
-resetBindable.Event:Connect(fastRespawn)
-Misc2:AddToggle('FastRespawns', { Text = 'Fast respawns' }):OnChanged(function(value)
-    StarterGui:SetCore('ResetButtonCallback', not value or resetBindable)
-end)
 
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
 Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
@@ -2483,18 +2313,9 @@ PlayersBox:AddToggle('GoToPlayer', { Text = 'Go to player' }):OnChanged(function
         if not selectedPlayer or isDead(selectedPlayer.Character) then continue end
 
         local rootPart = selectedPlayer.Character.HumanoidRootPart
-        local targetCFrame = rootPart.CFrame +
+
+        HumanoidRootPart.CFrame = rootPart.CFrame +
             Vector3.new(Options.XOffset.Value, Options.YOffset.Value, Options.ZOffset.Value)
-
-        local difference = targetCFrame.Position - HumanoidRootPart.CFrame.Position
-
-        local horizontalDifference = Vector3.new(difference.X, 0, difference.Z)
-        if Options.TeleportMethod.Value and horizontalDifference.Magnitude > 100 then
-            Teleport.Func(targetCFrame)
-            continue
-        end
-
-        HumanoidRootPart.CFrame = targetCFrame
     end
 end)
 
@@ -3107,11 +2928,14 @@ Menu:AddLabel('Menu keybind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoU
 
 Library.ToggleKeybind = Options.MenuKeybind
 
-Menu:AddToggle('Autoexecute', { Text = 'Autoexecute', Default = false }):OnChanged(function(value)
+local autoexecute = true
+if isfile('Bluu/Swordburst 2/autoexec') and readfile('Bluu/Swordburst 2/autoexec') == 'false' then
+    autoexecute = false
+end
+
+Menu:AddToggle('Autoexecute', { Text = 'Autoexecute', Default = autoexecute }):OnChanged(function(value)
     writefile('Bluu/Swordburst 2/autoexec', tostring(value))
 end)
-
-Toggles.Autoexecute:SetValue(true)
 
 local ThemeManager = loadstring(game:HttpGet(UIRepo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
