@@ -7,6 +7,14 @@ end
 
 if game.GameId ~= 212154879 then return end -- Swordburst 2
 
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
+local Function = ReplicatedStorage:WaitForChild('Function')
+
+if game.PlaceId == 659222129 then -- Main menu
+    Function:InvokeServer('Login')
+    return
+end
+
 local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
 if queue_on_teleport then
     queue_on_teleport([[
@@ -76,8 +84,6 @@ if not Camera then
     Camera = workspace.CurrentCamera
 end
 
-local ReplicatedStorage = game:GetService('ReplicatedStorage')
-
 local Profiles = ReplicatedStorage:WaitForChild('Profiles')
 local Profile = Profiles:WaitForChild(LocalPlayer.Name)
 
@@ -96,7 +102,6 @@ local Items = Database:WaitForChild('Items')
 local Skills = Database:WaitForChild('Skills')
 
 local Event = ReplicatedStorage:WaitForChild('Event')
-local Function = ReplicatedStorage:WaitForChild('Function')
 local InvokeFunction = function(...)
     local success, result
     while not success do
@@ -305,6 +310,8 @@ local toggleSwingDamage = function(value)
     end
 end
 
+local noviceArmor
+
 local onHumanoidAdded = function()
     Humanoid.Died:Connect(function()
         lastDeathCFrame = HumanoidRootPart.CFrame
@@ -329,12 +336,12 @@ local onHumanoidAdded = function()
 
     linearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
 
-    toggleSwingDamage(swingDamageEnabled)
     Character.ChildAdded:Connect(function(child)
         if child.Name == 'RightWeapon' or child.Name == 'LeftWeapon' then
             child:WaitForChild('Tool', 1e6):WaitForChild('Blade', 1e6).CanTouch = swingDamageEnabled
         end
     end)
+    toggleSwingDamage(swingDamageEnabled)
 
     Stamina.Changed:Connect(function(value)
         if not Toggles.ResetOnLowStamina.Value then return end
@@ -347,6 +354,16 @@ local onHumanoidAdded = function()
         HumanoidRootPart.CFrame = lastDeathCFrame
     end
     lastDeathCFrame = nil
+
+    if Toggles.FreeCommonCrystals and Toggles.FreeCommonCrystals.Value then
+        Event:FireServer(
+            "Equipment", {
+                "Dismantle",
+                { noviceArmor }
+            }
+        )
+        Humanoid.Health = 0
+    end
 end
 
 onHumanoidAdded()
@@ -506,6 +523,45 @@ local getAutofarmTarget = function()
     return closestPrioTarget or closestTarget
 end
 
+local calculateAutofarmOffset = (function()
+    local ratioDirection = Vector2.new(1, 4).Unit
+    local verticalRatio = ratioDirection.Y
+    local horizontalRatio = ratioDirection.X
+
+    return function(target)
+        local rootPart = target:FindFirstChild('HumanoidRootPart')
+        if not rootPart then return nil end
+
+        local size = rootPart.Size
+        local radius = math.max(size.X, size.Z) * 0.5 + 19
+
+        local vertical = Options.AutofarmVerticalOffset.Value
+        local horizontal = Options.AutofarmHorizontalOffset.Value
+
+        if vertical == Options.AutofarmVerticalOffset.Max then
+            if horizontal == Options.AutofarmHorizontalOffset.Max then
+                vertical = radius * verticalRatio
+                horizontal = radius * horizontalRatio
+            else
+                local root = math.sqrt(radius ^ 2 - horizontal ^ 2)
+                vertical = root == root and root or 0
+            end
+        elseif vertical == Options.AutofarmVerticalOffset.Min then
+            if horizontal == Options.AutofarmHorizontalOffset.Max then
+                vertical = radius * -verticalRatio
+                horizontal = radius * horizontalRatio
+            else
+                local root = -math.sqrt(radius ^ 2 - horizontal ^ 2)
+                vertical = root == root and root or 0
+            end
+        elseif horizontal == Options.AutofarmHorizontalOffset.Max then
+            horizontal = math.sqrt(radius ^ 2 - vertical ^ 2)
+        end
+
+        return rootPart, radius, vertical, horizontal
+    end
+end)()
+
 local flipUpsideDown = function(part)
     HumanoidRootPart.CFrame = CFrame.Angles(0, 0, math.pi) + HumanoidRootPart.CFrame.Position
     local look = Vector3.new(
@@ -535,7 +591,7 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
 
         local inputVec = Vector3.new(controls.D - controls.A, 0, controls.S - controls.W)
         if inputVec.Magnitude ~= 0 then
-            local flySpeed = 80
+            local flySpeed = 100
             local direction = Camera.CFrame.Rotation * inputVec.Unit
             local moveDelta = direction * flySpeed * deltaTime
             HumanoidRootPart.CFrame += moveDelta * math.clamp(deltaTime * flySpeed / moveDelta.Magnitude, 0, 1)
@@ -562,32 +618,33 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
             continue
         end
 
-        local rootPart = target:FindFirstChild('HumanoidRootPart')
+        local rootPart, radius, vertical, horizontal = calculateAutofarmOffset(target)
         if not rootPart then continue end
 
-        if Options.AutofarmVerticalOffset.Value < 0 then
-            flipUpsideDown(HumanoidRootPart)
+		-- if Options.AutofarmVerticalOffset.Value < 0 then
+		--     flipUpsideDown(HumanoidRootPart)
+		-- end
+
+		local targetPos = rootPart.Position
+			+ Vector3.new(0, (HumanoidRootPart.Size.Y - rootPart.Size.Y) * 0.5 + vertical, 0)
+
+        if rootPart:FindFirstChild('BodyVelocity') and rootPart.BodyVelocity.VectorVelocity.Magnitude > 0 then
+            targetPos += rootPart.BodyVelocity.VectorVelocity.Unit
         end
-
-        local targetPos = rootPart.Position + Vector3.new(0, Options.AutofarmVerticalOffset.Value, 0)
-
-        -- if rootPart:FindFirstChild('BodyVelocity') then
-        --     targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
-        -- end
 
         local diff = HumanoidRootPart.Position - rootPart.Position
         local horizOffset = Vector3.new(diff.X, 0, diff.Z)
 
-        if Options.AutofarmHorizontalOffset.Value > 0 and horizOffset.Magnitude ~= 0 then
-            targetPos += horizOffset.Unit * Options.AutofarmHorizontalOffset.Value
+        if horizontal > 0 and horizOffset.Magnitude ~= 0 then
+            targetPos += horizOffset.Unit * horizontal
         end
 
         local toTarget = targetPos - HumanoidRootPart.Position
         local horizToTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
 
-        if Options.AutofarmSpeed.Value == Options.AutofarmSpeed.Max then
-            HumanoidRootPart.CFrame *= CFrame.Angles(0, math.pi / 8, 0)
-        end
+        -- if Options.AutofarmSpeed.Value == Options.AutofarmSpeed.Max then
+        --     HumanoidRootPart.CFrame *= CFrame.Angles(0, math.pi / 8, 0)
+        -- end
 
         local totalDist = toTarget.Magnitude
         if totalDist == 0 then continue end
@@ -599,7 +656,9 @@ Autofarm:AddToggle('Autofarm', { Text = 'Enabled' }):OnChanged(function()
 
         local moveDir = horizToTarget.Unit
         local speed = Options.AutofarmSpeed.Value
-        speed = speed == Options.AutofarmSpeed.Max and math.huge or speed
+        if speed == Options.AutofarmSpeed.Max then
+            speed = math.huge
+        end
 
         local alpha = math.clamp(deltaTime * speed / horizDist, 0, 1)
         HumanoidRootPart.CFrame += moveDir * totalDist * alpha
@@ -619,15 +678,15 @@ Autofarm:AddSlider('AutofarmSpeed', {
 })
 Autofarm:AddSlider('AutofarmVerticalOffset', {
     Text = 'Vertical offset',
-    Default = -14.7,
+    Default = -60,
     Min = -60,
     Max = 60,
     Rounding = 1,
     Suffix = 'm',
-    -- FormatDisplayValue = function(slider, value)
-    --     if value == slider.Max then return 'Auto high' end
-    --     if value == slider.Min then return 'Auto low' end
-	-- end
+    FormatDisplayValue = function(slider, value)
+        if value == slider.Max then return 'Auto high' end
+        if value == slider.Min then return 'Auto low' end
+	end
 })
 Autofarm:AddSlider('AutofarmHorizontalOffset', {
     Text = 'Horizontal offset',
@@ -636,9 +695,9 @@ Autofarm:AddSlider('AutofarmHorizontalOffset', {
     Max = 60,
     Rounding = 1,
     Suffix = 'm',
-    -- FormatDisplayValue = function(slider, value)
-    --     if value == slider.Max then return 'Auto' end
-	-- end
+    FormatDisplayValue = function(slider, value)
+        if value == slider.Max then return 'Auto' end
+	end
 })
 Autofarm:AddSlider('AutofarmRadius', {
     Text = 'Radius',
@@ -997,13 +1056,21 @@ local UpdateAutowalkTarget = function()
     if target then
         local rootPart = target.HumanoidRootPart
         local targetPos = rootPart.CFrame.Position
-        -- if rootPart:FindFirstChild('BodyVelocity') then
-        --     targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
-        -- end
+        if rootPart:FindFirstChild('BodyVelocity') and rootPart.BodyVelocity.VectorVelocity.Magnitude > 0 then
+            targetPos += rootPart.BodyVelocity.VectorVelocity.Unit
+        end
 
         local horizontalOffset = Options.AutowalkHorizontalOffset.Value
 
         local myPosition = HumanoidRootPart.CFrame.Position
+
+        if horizontalOffset == Options.AutowalkHorizontalOffset.Max then
+            local targetSize = rootPart.Size
+            local boundingRadius = math.max(targetSize.X, targetSize.Z) * 0.5 + 19
+            local targetY, myY = targetPos.Y, myPosition.Y
+            local verticalOffset = targetY > myY and targetY - myY or myY - targetY
+            horizontalOffset = math.sqrt(boundingRadius ^ 2 - verticalOffset ^ 2)
+        end
 
         if horizontalOffset > 0 then
             local difference = myPosition - targetPos
@@ -1081,14 +1148,14 @@ end)
 Autowalk:AddToggle('Pathfind', { Text = 'Pathfind', Default = true })
 Autowalk:AddSlider('AutowalkHorizontalOffset', {
     Text = 'Horizontal offset',
-    Default = 15,
+    Default = 30,
     Min = 0,
     Max = 30,
     Rounding = 1,
     Suffix = 'm',
-    -- FormatDisplayValue = function(slider, value)
-    --     if value == slider.Max then return 'Auto' end
-	-- end
+    FormatDisplayValue = function(slider, value)
+        if value == slider.Max then return 'Auto' end
+	end
 })
 Autowalk:AddLabel('Remaining settings in Autofarm')
 
@@ -1178,6 +1245,9 @@ local leftSword = getItemById(Equip.Left.Value)
 
 KillauraSkill.GetSword = function(class)
     local self = KillauraSkill
+    if class and self.Sword and self.Sword.Parent then
+        return self.Sword
+    end
     class = class or self.Class
     local inDatabase = Items[rightSword.Name]
     if rightSword and inDatabase.Class.Value == class and inDatabase.Level.Value <= getLevel() then
@@ -1306,7 +1376,7 @@ KillauraSkill.Use = function()
     end
 
     if not self.GetSword() then
-        Library:Notify(`Get a {self.Class:lower()} first`)
+        Library:Notify("Get a " .. self.Class:lower() .. " you can equip first")
         return Options.SkillToUse:SetValue()
     end
 
@@ -1408,11 +1478,19 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             if onCooldown[target] then continue end
             if isDead(target) then continue end
             local rootPart = target.HumanoidRootPart
-            local targetPos = rootPart.Position
-            -- if rootPart:FindFirstChild('BodyVelocity') then
-            --     targetPos += rootPart.BodyVelocity.VectorVelocity * LocalPlayer:GetNetworkPing() * 2
-            -- end
-            if (targetPos - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
+            local targetPos = rootPart.Position + Vector3.new(
+                0,
+                (HumanoidRootPart.Size.Y - rootPart.Size.Y) * 0.5,
+                0
+            )
+            if rootPart:FindFirstChild('BodyVelocity') and rootPart.BodyVelocity.VectorVelocity.Magnitude > 0 then
+                targetPos += rootPart.BodyVelocity.VectorVelocity.Unit
+            end
+            local range = Options.KillauraRange.Value
+            if range == Options.KillauraRange.Max then
+                range = math.max(rootPart.Size.X, rootPart.Size.Z) * 0.5 + 20
+            end
+            if (targetPos - HumanoidRootPart.Position).Magnitude > range then
                 continue
             end
             attacked = attack(target)
@@ -1427,27 +1505,35 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
                 if onCooldown[target] then continue end
                 if isDead(target) then continue end
                 local rootPart = target.HumanoidRootPart
-                if (rootPart.Position - HumanoidRootPart.Position).Magnitude > Options.KillauraRange.Value then
+                local range = Options.KillauraRange.Value
+                if range == Options.KillauraRange.Max then
+                    range = math.max(rootPart.Size.X, rootPart.Size.Z) * 0.5 + 20
+                end
+                if (rootPart.Position - HumanoidRootPart.Position).Magnitude > range then
                     continue
                 end
                 attacked = attack(target)
             end
         end
 
-        if swingFunction then -- this is preferred since it ignores the swinging state
-            if attacked then
-                task.spawn(swingFunction)
-            end
-        elseif RequiredServices then
-            if attacked then
-                task.spawn(RequiredServices.Actions.StartSwing)
-            else
-                task.spawn(RequiredServices.Actions.StopSwing)
+        if Toggles.KillauraSwing.Value then
+            if swingFunction then -- this is preferred since it ignores the swinging state
+                if attacked then
+                    task.spawn(swingFunction)
+                end
+            elseif RequiredServices then
+                if attacked then
+                    task.spawn(RequiredServices.Actions.StartSwing)
+                else
+                    task.spawn(RequiredServices.Actions.StopSwing)
+                end
             end
         end
     end
     toggleSwingDamage(true)
 end)
+
+Killaura:AddToggle('KillauraSwing', { Text = 'Swing' })
 
 Killaura:AddSlider('KillauraDelay', {
     Text = 'Delay',
@@ -1474,14 +1560,14 @@ Killaura:AddSlider('KillauraThreads', {
 })
 Killaura:AddSlider('KillauraRange', {
     Text = 'Range',
-    Default = 15,
+    Default = 120,
     Min = 0,
-    Max = 60,
+    Max = 120,
     Rounding = 0,
     Suffix = 'm',
-    -- FormatDisplayValue = function(slider, value)
-    --     if value == slider.Max then return 'Auto' end
-	-- end
+    FormatDisplayValue = function(slider, value)
+        if value == slider.Max then return 'Auto' end
+	end
 })
 Killaura:AddToggle('AttackPlayers', {Text = 'Attack players' })
 Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
@@ -1499,7 +1585,7 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
         class = class == 'SingleSword' and '1HSword' or class
 
         if not KillauraSkill.GetSword(class) then
-            Library:Notify(`Get a {class} first`)
+            Library:Notify("Get a " .. class .. " you can equip first")
             return Options.SkillToUse:SetValue()
         end
     end
@@ -1805,6 +1891,35 @@ AdditionalCheats:AddDropdown('MapTeleports', { Text = 'Map teleports', Values = 
     end
 end)
 
+local mobSpawns = {}
+local mobSpawnLabels = {}
+do
+    local index = 1
+    for _, instance in next, workspace:GetChildren() do
+        if not instance.Name:find("ASpawn") then
+            continue
+        end
+        mobSpawns[instance.Name] = instance.WorldPivot
+        mobSpawnLabels[index] = instance.Name
+        index += 1
+    end
+end
+
+
+AdditionalCheats:AddDropdown('MapMobSpawns', { Text = 'Map mob spawns', Values = mobSpawnLabels, AllowNull = true })
+:OnChanged(function(value)
+    if not value then return end
+    Options.MapMobSpawns:SetValue()
+
+    local disabledToggle = toggleLerp()
+
+    HumanoidRootPart.CFrame = mobSpawns[value]
+
+    if disabledToggle then
+        disabledToggle:SetValue(true)
+    end
+end)
+
 task.spawn(function()
     local mapTeleportLabels = ({
         [542351431] = { -- floor 1
@@ -1940,31 +2055,31 @@ task.spawn(function()
     Options.MapTeleports:SetValues(Options.MapTeleports.Values)
 end)
 
-local proximityPromptIndex = 0
-local proximityPrompts = {}
-local proximityPromptNames = {}
-for _, proximityPrompt in next, game:GetDescendants() do
-    if proximityPrompt.ClassName ~= 'ProximityPrompt' then continue end
-    proximityPromptIndex += 1
-    local name = `{proximityPrompt.Parent.Parent.Name} {proximityPromptIndex}`
-    proximityPrompts[name] = proximityPrompt
-    table.insert(proximityPromptNames, name)
-end
+-- local proximityPromptIndex = 0
+-- local proximityPrompts = {}
+-- local proximityPromptNames = {}
+-- for _, proximityPrompt in next, game:GetDescendants() do
+--     if proximityPrompt.ClassName ~= 'ProximityPrompt' then continue end
+--     proximityPromptIndex += 1
+--     local name = `{proximityPrompt.Parent.Parent.Name} {proximityPromptIndex}`
+--     proximityPrompts[name] = proximityPrompt
+--     table.insert(proximityPromptNames, name)
+-- end
 
-AdditionalCheats:AddDropdown('FireProximityPrompts', {
-    Text = 'Fire proximityprompts',
-    Values = proximityPromptNames,
-    AllowNull = true
-}):OnChanged(function(proximityPromptName)
-    if not proximityPromptName then return end
-    Options.FireProximityPrompts:SetValue()
+-- AdditionalCheats:AddDropdown('FireProximityPrompts', {
+--     Text = 'Fire proximityprompts',
+--     Values = proximityPromptNames,
+--     AllowNull = true
+-- }):OnChanged(function(proximityPromptName)
+--     if not proximityPromptName then return end
+--     Options.FireProximityPrompts:SetValue()
 
-    local proximityPrompt = proximityPrompts[proximityPromptName]
-    if proximityPrompt.Parent and proximityPrompt.Parent.Parent then
-        HumanoidRootPart.CFrame = proximityPrompt.Parent.Parent.CFrame
-        fireproximityprompt(proximityPrompt)
-    end
-end)
+--     local proximityPrompt = proximityPrompts[proximityPromptName]
+--     if proximityPrompt.Parent and proximityPrompt.Parent.Parent then
+--         HumanoidRootPart.CFrame = proximityPrompt.Parent.Parent.CFrame
+--         fireproximityprompt(proximityPrompt)
+--     end
+-- end)
 
 local Miscs = Main:AddLeftTabbox()
 
@@ -2225,6 +2340,46 @@ ItemsBox:AddDropdown('UseItem', { Text = 'Use item(s)', Values = unboxableItemNa
         Event:FireServer('Equipment', { 'UseItem', item })
     end
 end)
+
+do
+    local connection
+    ItemsBox:AddToggle("FreeCommonCrystals", { Text = "Free common crystals" })
+    :OnChanged(function(value)
+        if not value then
+            connection:Disconnect()
+            return
+        end
+
+        for _, item in next, Inventory:GetChildren() do
+            if item.Name == "Blue Novice Armor" then
+                noviceArmor = item
+                break
+            elseif item.Name:find(" Novice Armor") then
+                noviceArmor = item
+            end
+        end
+
+        if not noviceArmor then
+            Library:Notify("Get a novice armor first")
+            return
+        end
+
+        InvokeFunction("Equipment", { "Wear", noviceArmor })
+        Event:FireServer(
+            "Equipment", {
+                "Dismantle",
+                { noviceArmor }
+            }
+        )
+        Humanoid.Health = 0
+
+        connection = Inventory.ChildAdded:Connect(function(item)
+            if item.Name == "Blue Novice Armor" then
+                noviceArmor = item
+            end
+        end)
+    end)
+end
 
 local PlayersBox = Misc:AddRightGroupbox('Players')
 
