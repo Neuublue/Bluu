@@ -251,7 +251,7 @@ local Window = Library:CreateWindow({
     ToggleKeybind = Enum.KeyCode.End,
     NotifySide = 'Left',
     ShowCustomCursor = false,
-    CornerRadius = 0,
+    -- CornerRadius = 0,
     Icon = 166652117,
     Resizable = true,
     MobileButtonsSide = 'Right',
@@ -2291,6 +2291,32 @@ Level.Changed:Connect(equipBestWeaponAndArmor)
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
 Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
 
+Misc2:AddToggle('AutoJoinNewFloor', { Text = 'Auto join new floor' })
+Profile.Locations.ChildAdded:Connect(function(location)
+    if not Toggles.AutoJoinNewFloor.Value then
+        return
+    end
+
+    while true do
+        local success, response = pcall(Function.InvokeServer, Function, 'Teleport', {
+            'Teleport',
+            tonumber(location.Name)
+        })
+        -- print(response)
+        if not success then
+        elseif not response or response == 'Already teleporting...' then
+            local teleporting = Profile:WaitForChild('TELEPORTING', 1)
+            teleporting = teleporting and teleporting.Destroying:Wait()
+            break
+        elseif response == 'You must be on a teleport pad to teleport!' then
+            Humanoid.Health = 0
+        else
+            break
+        end
+        task.wait(0.3)
+    end
+end)
+
 local Misc = Window:AddTab('Misc', 'shuffle')
 
 local ItemsBox = Misc:AddLeftGroupbox('Items')
@@ -2346,7 +2372,9 @@ do
     ItemsBox:AddToggle("FreeCommonCrystals", { Text = "Free common crystals" })
     :OnChanged(function(value)
         if not value then
-            connection:Disconnect()
+            if connection then
+                connection:Disconnect()
+            end
             return
         end
 
