@@ -3120,6 +3120,37 @@ Menu:AddToggle('Autoexecute', { Text = 'Autoexecute', Default = autoexecute }):O
     writefile('Bluu/Swordburst 2/autoexec', tostring(value))
 end)
 
+Menu:AddButton('Unload Script', function()
+    if Library and Library.Toggles then
+        for _, toggle in next, Library.Toggles do
+            if toggle.Value then toggle:SetValue(false); end;
+        end;
+    end;
+
+    pcall(function()
+        if linearVelocity then linearVelocity.Parent = nil; end;
+        if waypoint then waypoint:Destroy(); end;
+
+        if Humanoid then Humanoid.WalkSpeed = 20; end;
+
+        if Camera and Character then
+            Camera.CameraSubject = Character;
+        end;
+        if LocalPlayer then
+            LocalPlayer.CameraMaxZoomDistance = defaultCameraMaxZoomDistance;
+            LocalPlayer.DevCameraOcclusionMode = 0;
+        end;
+
+        if Chat and chatSize then
+            Chat.Size = chatSize;
+        end;
+
+        if Library then Library:Unload(); end;
+    end);
+
+    getgenv().Bluu = false;
+end);
+
 local ThemeManager = loadstring(game:HttpGet(UIRepo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
 ThemeManager:SetFolder('Bluu/Swordburst 2')
@@ -3137,3 +3168,4 @@ local Credits = Settings:AddRightGroupbox('Credits')
 Credits:AddLabel('de_Neuublue - Script')
 Credits:AddLabel('Inori - UI library')
 Credits:AddLabel('wally - UI addons')
+
