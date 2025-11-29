@@ -2291,31 +2291,157 @@ Level.Changed:Connect(equipBestWeaponAndArmor)
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
 Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
 
-Misc2:AddToggle('AutoJoinNewFloor', { Text = 'Auto join new floor' })
-Profile.Locations.ChildAdded:Connect(function(location)
-    if not Toggles.AutoJoinNewFloor.Value then
-        return
-    end
+-- services
+local Players = game:GetService("Players");
+local LocalPlayer = Players.LocalPlayer;
+
+-- profile
+local Profile = game:GetService("ReplicatedStorage")
+    :WaitForChild("Profiles")
+    :WaitForChild(LocalPlayer.Name);
+
+-- floor progression
+local FloorIds = {
+    540240728; 542351431; 737272595; 548231754; 555980327;
+    572487908; 580239979; 566212942; 582198062; 548878321;
+    573267292; 2659143505; 5287433115; 6144637080; 13965775911;
+    16810524216; 18729767954; 11331145451; 15716179871;
+};
+
+local FloorIndex = {};
+for i = 1, #FloorIds do
+    FloorIndex[FloorIds[i]] = i;
+end;
+
+-- unlocked floors
+local function GetUnlockedPlaceIds()
+    local folder = Profile:FindFirstChild("Locations");
+    if not folder then return {}; end;
+
+    local unlocked = {};
+    for _, child in ipairs(folder:GetChildren()) do
+        local pid = tonumber(child.Name);
+        if pid then unlocked[pid] = true; end;
+    end;
+
+    return unlocked;
+end;
+
+-- next unlocked
+local function GetNextUnlockedFrom(currentPid)
+    currentPid = tonumber(currentPid);
+    if not currentPid then return nil; end;
+
+    local idx = FloorIndex[currentPid];
+    if not idx then return nil; end;
+
+    local unlocked = GetUnlockedPlaceIds();
+    for i = idx + 1, #FloorIds do
+        local pid = FloorIds[i];
+        if unlocked[pid] then return pid; end;
+    end;
+
+    return nil;
+end;
+
+local function Teleport(placeId)
+    placeId = tonumber(placeId);
+    if not placeId then return; end;
 
     while true do
-        local success, response = pcall(Function.InvokeServer, Function, 'Teleport', {
-            'Teleport',
-            tonumber(location.Name)
-        })
-        -- print(response)
-        if not success then
-        elseif not response or response == 'Already teleporting...' then
-            local teleporting = Profile:WaitForChild('TELEPORTING', 1)
-            teleporting = teleporting and teleporting.Destroying:Wait()
-            break
-        elseif response == 'You must be on a teleport pad to teleport!' then
-            Humanoid.Health = 0
+        local ok, resp = pcall(Function.InvokeServer, Function, "Teleport", {
+            "Teleport";
+            placeId;
+        });
+
+        if not ok then
+            -- retry
+        elseif not resp or resp == "Already teleporting..." then
+            local flag = Profile:WaitForChild("TELEPORTING", 1);
+            if flag then flag.Destroying:Wait(); end;
+            break;
+        elseif resp == "You must be on a teleport pad to teleport!" then
+            Humanoid.Health = 0;
         else
-            break
-        end
-        task.wait(0.3)
-    end
-end)
+            break;
+        end;
+
+        task.wait(0.3);
+    end;
+end;
+
+Misc2:AddToggle("AutoFloor",        { Text = "Auto Floor Advance" });
+Misc2:AddToggle("AutoFloorByLevel", { Text = "level requirement" });
+
+Misc2:AddInput("NextFloorLevel", {
+    Text = "Required level";
+    Numeric = true;
+    Finished = true;
+});
+
+Misc2:AddInput("LevelIncrement", {
+    Text = "Level increment";
+    Numeric = true;
+    Finished = true;
+    Default = 10;
+});
+
+-- increment validation
+local function GetIncrement()
+    local raw = tonumber(Options.LevelIncrement.Value);
+    if not raw or raw < 1 then
+        raw = 10;
+        Options.LevelIncrement:SetValue("10");
+    end;
+    return raw;
+end;
+
+local function fallbackLevel()
+    local lvl = getLevel();
+    local inc = GetIncrement();
+    local raw = tonumber(Options.NextFloorLevel.Value);
+
+    if not raw or raw <= lvl then
+        raw = lvl + inc;
+        Options.NextFloorLevel:SetValue(tostring(raw));
+        return raw;
+    end;
+
+    return raw;
+end;
+
+Options.NextFloorLevel:OnChanged(function()
+    fallbackLevel();
+end);
+
+Toggles.AutoFloorByLevel:OnChanged(function(enabled)
+    if enabled then
+        fallbackLevel();
+    end;
+end);
+
+task.spawn(function()
+    while true do
+        task.wait(0.25);
+
+        if not Toggles.AutoFloor.Value then
+            continue;
+        end;
+
+        local currentPid = game.PlaceId;
+        local nextPid = GetNextUnlockedFrom(currentPid);
+        if not nextPid then continue; end;
+
+        if Toggles.AutoFloorByLevel.Value then
+            local required = tonumber(Options.NextFloorLevel.Value);
+            if required and getLevel() >= required then
+                Teleport(nextPid);
+            end;
+        else
+            Teleport(nextPid);
+        end;
+    end;
+end);
 
 local Misc = Window:AddTab('Misc', 'shuffle')
 
@@ -3137,3 +3263,4 @@ local Credits = Settings:AddRightGroupbox('Credits')
 Credits:AddLabel('de_Neuublue - Script')
 Credits:AddLabel('Inori - UI library')
 Credits:AddLabel('wally - UI addons')
+
