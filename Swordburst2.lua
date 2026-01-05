@@ -1370,7 +1370,7 @@ end)
 --     end
 -- end)()
 
-local skillDirection = Vector3.new(0/0, 0/0, 0/0)
+local skillDirection = Vector3.new(0, 999999999999, 0)
 
 local MiscSkill = {}
 
@@ -1385,7 +1385,7 @@ local skillDurations = {
 
     -- ["Infinity Slash"] = 1,
     ["Summon Pistol"] = 0.2,
-    ["Meteor Shot"] = 1,
+    ["Meteor Shot"] = 999999,
 
     -- idk these durations + cant test bc dont have skills :(
     ["Spearitual Strike"] = 1,
@@ -1584,7 +1584,7 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             end
         end
 
-        if Toggles.KillauraSwing.Value and swingFunction then
+        if Toggles.KillauraSwing and Toggles.KillauraSwing.Value and swingFunction then
             task.spawn(attacked > 0 and swingFunction or stopSwingFunction)
         end
     end
