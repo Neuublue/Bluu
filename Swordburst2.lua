@@ -1385,10 +1385,13 @@ local skillDurations = {
     ["Summon Pistol"] = 0.2,
     ["Meteor Shot"] = 1,
 
+    ["Everfrost Strike"] = 1.5,
+
+    ["Cursed Three Fold Slash"] = 3.3,
+    ["Water Blast"] = 1.2,
+
     -- idk these durations + cant test bc dont have skills :(
     ["Spearitual Strike"] = 1,
-    ["Cursed Three Fold Slash"] = 3,
-    ["Water Blast"] = 7,
 }
 
 KillauraSkill._use = function()
@@ -1680,7 +1683,7 @@ do
         ["Meteor Shot"] = "Meteor Shot (x3.1, 1s)",
 
         -- ["Eggsellent Shield"] = "Eggsellent Shield (x4) (15k base)",
-        -- ["Everfrost Strike"] = "Everfrost Strike (x3.5) (10k base)",
+        ["Everfrost Strike"] = "Everfrost Strike (x3.5) (10k base)",
         -- ["Realm Judgement"] = "Realm Judgement (x1.25) (10k base)",
         -- ["Realm Banishment"] = "Realm Banishment (x0) (25k base)",
 
