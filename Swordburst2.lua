@@ -1370,8 +1370,6 @@ end)
 --     end
 -- end)()
 
-local skillDirection = Vector3.new(0/0, 0/0, 0/0)
-
 local MiscSkill = {}
 
 local skillDurations = {
@@ -1398,7 +1396,7 @@ KillauraSkill._use = function()
         MiscSkill._onKillauraSkill()
     end
     local self = KillauraSkill
-    Event:FireServer('Skills', { 'UseSkill', self.Name, { Direction = skillDirection } })
+    Event:FireServer('Skills', { 'UseSkill', self.Name, { Direction = HumanoidRootPart.CFrame.lookVector } })
     self.OnCooldown = true
     self.Active = true
     local skillDuration = skillDurations[self.Name] or 0
@@ -1730,7 +1728,7 @@ MiscSkill.Init()
 
 MiscSkill._use = function()
     local self = MiscSkill
-    Event:FireServer('Skills', { 'UseSkill', self.Name, { Direction = skillDirection } })
+    Event:FireServer('Skills', { 'UseSkill', self.Name, { Direction = HumanoidRootPart.CFrame.lookVector } })
     self.OnCooldown = true
     task.delay(self.Cooldown, function()
         self.OnCooldown = false
@@ -1754,26 +1752,27 @@ Killaura:AddDropdown('MiscSkill', { Text = 'Misc skill', Values = {}, AllowNull 
         inDatabase.Cooldown.Value
     )
 
+    local func
     if name == 'Heal' or name == 'Mending Spirit' then
-        local func = function()
+        func = function()
+            if not Toggles.Killaura.Value then return end
             if Stamina.Value < self.Cost then return end
             if self.OnCooldown then return end
             if (Health.Value / Health.MaxValue) > 0.66 then return end
             self._use()
         end
-        self._connections.health = Health.Changed:Connect(func)
-        self._connections.stamina = Stamina.Changed:Connect(func)
     elseif name == 'Summon Tree' then
-        local func = function()
+        func = function()
+            if not Toggles.Killaura.Value then return end
             if Stamina.Value < self.Cost then return end
             if self.OnCooldown then return end
             if Stamina.Value > 66 then return end
             self._use()
         end
-        self._connections.stamina = Stamina.Changed:Connect(func)
     elseif name == 'Cursed Enhancement' then
-        local func = function()
-            if Stamina.Value < (self.Cost + KillauraSkill.Cost) then return end
+        func = function()
+            if not Toggles.Killaura.Value then return end
+            if Stamina.Value < self.Cost then return end
             if self.OnCooldown then return end
             self._use()
             awaitEventTimeout(
@@ -1784,8 +1783,9 @@ Killaura:AddDropdown('MiscSkill', { Text = 'Misc skill', Values = {}, AllowNull 
                 0.1
             )
         end
-        self._connections.stamina = Stamina.Changed:Connect(func)
     end
+    self._connections.health = Health.Changed:Connect(func)
+    self._connections.stamina = Stamina.Changed:Connect(func)
 end)
 
 do
