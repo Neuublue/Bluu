@@ -1,4 +1,4 @@
-if getgenv().Bluu then return end
+if Bluu then return end
 getgenv().Bluu = true
 
 if not game:IsLoaded() then
@@ -7,15 +7,14 @@ end
 
 if game.GameId ~= 212154879 then return end -- Swordburst 2
 
-local ReplicatedStorage = game:GetService('ReplicatedStorage')
-local Function = ReplicatedStorage:WaitForChild('Function')
+local Function = game:GetService('ReplicatedStorage'):WaitForChild('Function')
 
 if game.PlaceId == 659222129 then -- Main menu
     Function:InvokeServer('Login')
     return
 end
 
-local queue_on_teleport = (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
+local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
 if queue_on_teleport then
     queue_on_teleport([[
         if isfile('Bluu/Swordburst 2/autoexec') and readfile('Bluu/Swordburst 2/autoexec') == 'true' then
@@ -36,12 +35,15 @@ local sendWebhook = (function()
         body.content = ping and '@everyone' or nil
         body.username = 'Bluu'
         body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-        body.embeds = body.embeds or {{}}
-        body.embeds[1].timestamp = DateTime:now():ToIsoDate()
-        body.embeds[1].footer = {
-            text = 'Bluu',
-            icon_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-        }
+
+        local embed = type(body.embeds) == 'table' and body.embeds[1]
+        if embed then
+            embed.timestamp = DateTime:now():ToIsoDate()
+            embed.footer = {
+                text = 'Bluu',
+                icon_url = body.avatar_url
+            }
+        end
 
         http_request({
             Url = url,
@@ -74,6 +76,8 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild('Humanoid')
 local HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
 
+local Animate = Character:WaitForChild('Animate')
+
 local Entity = Character:WaitForChild('Entity')
 local Health = Entity:WaitForChild('Health')
 local Stamina = Entity:WaitForChild('Stamina')
@@ -84,9 +88,10 @@ if not Camera then
     Camera = workspace.CurrentCamera
 end
 
-local Profiles = ReplicatedStorage:WaitForChild('Profiles')
+local Profiles = game:GetService('ReplicatedStorage'):WaitForChild('Profiles')
 local Profile = Profiles:WaitForChild(LocalPlayer.Name)
 
+local MySkills = Profile:WaitForChild('Skills')
 local Inventory = Profile:WaitForChild('Inventory')
 local AnimPacks = Profile:WaitForChild('AnimPacks')
 local Equip = Profile:WaitForChild('Equip')
@@ -97,21 +102,17 @@ local getLevel = function(value)
 end
 local Vel = Exp.Parent:WaitForChild('Vel')
 
-local Database = ReplicatedStorage:WaitForChild('Database')
+local Database = game:GetService('ReplicatedStorage'):WaitForChild('Database')
 local Items = Database:WaitForChild('Items')
 local Skills = Database:WaitForChild('Skills')
 
-local Event = ReplicatedStorage:WaitForChild('Event')
+local Event = game:GetService('ReplicatedStorage'):WaitForChild('Event')
 local InvokeFunction = function(...)
     local success, result
     while not success do
         success, result = pcall(Function.InvokeServer, Function, ...)
     end
     return result
-end
-
-if workspace:GetAttribute('DungeonFloor') then
-    Event:FireServer('UniqueFloorTypes', { 'Dungeons', 'Start' })
 end
 
 local PlayerUI = LocalPlayer:WaitForChild('PlayerGui'):WaitForChild('CardinalUI'):WaitForChild('PlayerUI')
@@ -137,23 +138,38 @@ LocalPlayer.Idled:Connect(function()
     game:GetService('VirtualUser'):ClickButton2(Vector2.new())
 end)
 
+if workspace:GetAttribute('DungeonFloor') then
+    Event:FireServer('UniqueFloorTypes', { 'Dungeons', 'Start' })
+end
+
 local identifyexecutor = identifyexecutor or getexecutorname or function() return 'Unknown' end
 
 local RequiredServices = (function()
     if identifyexecutor() == 'Xeno' then -- fuck you
         StarterGui:SetCore('SendNotification', {
             Title = 'Xeno is bad',
-            Text = 'please stop using this piece of shit',
-            Button1 = 'OK'
+            Text = 'please stop using this piece of shit'
         })
         return
     end
     local methods = {}
     methods[1] = function()
         local RequiredServices
-        for _, object in next, getreg() do
-            if type(object) == 'table' and rawget(object, 'Services') then
-                RequiredServices = object.Services
+        for _, func in next, { getgc, getreg } do
+            if type(func) ~= 'function' then
+                continue
+            end
+            for _, object in next, select(2, pcall(func, true)) do
+                if type(object) ~= 'table' then
+                    continue
+                end
+                local Services = rawget(object, 'Services')
+                if Services and rawget(Services, 'Combat') then
+                    RequiredServices = Services
+                    break
+                end
+            end
+            if RequiredServices then
                 break
             end
         end
@@ -167,7 +183,9 @@ local RequiredServices = (function()
     methods[2] = function()
         local MainModule
         for _, func in next, { getloadedmodules, getnilinstances } do
-            if type(func) ~= 'function' then continue end
+            if type(func) ~= 'function' then
+                continue
+            end
             for _, instance in next, select(2, pcall(func)) do
                 if instance.Name == 'MainModule' and instance:FindFirstChild('Services') then
                     MainModule = instance
@@ -179,7 +197,7 @@ local RequiredServices = (function()
             end
         end
         if not MainModule then return end
-        local require = getgenv().require or getrenv().require
+        local require = require or getrenv().require
         local RequiredServices = require(MainModule).Services
         local UI = MainModule.Services.UI
         RequiredServices.InventoryUI = require(UI.Inventory)
@@ -293,24 +311,36 @@ end
 
 local lastDeathCFrame
 
+local CharacterItems = workspace:WaitForChild("CharacterItems")
+local myCharacterItems = CharacterItems:WaitForChild(LocalPlayer.UserId)
+
 local swingDamageEnabled = true
 local toggleSwingDamage = function(value)
     swingDamageEnabled = value
 
-    local RightWeapon = Character:FindFirstChild('RightWeapon')
+    local RightWeapon = myCharacterItems:FindFirstChild('RightWeapon')
     if RightWeapon and RightWeapon:FindFirstChild('Tool') and RightWeapon.Tool:FindFirstChild('Blade') then
         RightWeapon.Tool.Blade.CanTouch = value
     else
         return
     end
 
-    local LeftWeapon = Character:FindFirstChild('LeftWeapon')
+    local LeftWeapon = myCharacterItems:FindFirstChild('LeftWeapon')
     if LeftWeapon and LeftWeapon:FindFirstChild('Tool') and LeftWeapon.Tool:FindFirstChild('Blade') then
         LeftWeapon.Tool.Blade.CanTouch = value
     end
 end
 
+myCharacterItems.ChildAdded:Connect(function(child)
+    if child.Name == 'RightWeapon' or child.Name == 'LeftWeapon' then
+        child:WaitForChild('Tool', 1e6):WaitForChild('Blade', 1e6).CanTouch = swingDamageEnabled
+    end
+end)
+toggleSwingDamage(swingDamageEnabled)
+
 local noviceArmor
+
+local desyncChanged = false
 
 local onHumanoidAdded = function()
     Humanoid.Died:Connect(function()
@@ -336,13 +366,6 @@ local onHumanoidAdded = function()
 
     linearVelocity.Attachment0 = HumanoidRootPart:WaitForChild('RootAttachment')
 
-    Character.ChildAdded:Connect(function(child)
-        if child.Name == 'RightWeapon' or child.Name == 'LeftWeapon' then
-            child:WaitForChild('Tool', 1e6):WaitForChild('Blade', 1e6).CanTouch = swingDamageEnabled
-        end
-    end)
-    toggleSwingDamage(swingDamageEnabled)
-
     Stamina.Changed:Connect(function(value)
         if not Toggles.ResetOnLowStamina.Value then return end
         if not KillauraSkill.Active and value < KillauraSkill.Cost then
@@ -350,10 +373,15 @@ local onHumanoidAdded = function()
         end
     end)
 
-    if lastDeathCFrame and Toggles.ReturnOnDeath.Value then
+    if lastDeathCFrame and (Toggles.ReturnOnDeath.Value or desyncChanged) then
+        desyncChanged = false
         HumanoidRootPart.CFrame = lastDeathCFrame
     end
     lastDeathCFrame = nil
+
+    if Toggles.Desync and Toggles.Desync.Value then
+        Animate.Parent = nil
+    end
 
     if Toggles.FreeCommonCrystals and Toggles.FreeCommonCrystals.Value then
         Event:FireServer(
@@ -373,6 +401,7 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     Character = newCharacter
     Humanoid = Character:WaitForChild('Humanoid')
     HumanoidRootPart = Character:WaitForChild('HumanoidRootPart')
+    Animate = Character:WaitForChild('Animate')
     Entity = Character:WaitForChild('Entity', 2)
     if not Entity then
         Humanoid.Health = 0
@@ -1162,7 +1191,7 @@ Autowalk:AddLabel('Remaining settings in Autofarm')
 local Killaura = Main:AddRightGroupbox('Killaura')
 
 local getItemById = function(id)
-    if id == 0 then return end
+    if not id or id == 0 then return end
     for _, item in next, Inventory:GetChildren() do
         if item.Value == id then
             return item
@@ -1170,7 +1199,7 @@ local getItemById = function(id)
     end
 end
 
-local getItemStat = (function()
+local getItemDamageOrDefense = (function()
     local maxUpgrades = {
         Common = 10,
         Uncommon = 10,
@@ -1235,7 +1264,7 @@ KillauraSkill.Init = function(name, cost, cooldown, class, sword)
     self.Sword = sword
     self.OnCooldown = false
     self.Active = false
-    self.LastHit = false
+    -- self.LastHit = false
 end
 
 KillauraSkill.Init()
@@ -1245,17 +1274,16 @@ local leftSword = getItemById(Equip.Left.Value)
 
 KillauraSkill.GetSword = function(class)
     local self = KillauraSkill
-    if class and self.Sword and self.Sword.Parent then
+    if not class and (self.Sword and self.Sword.Parent) then
         return self.Sword
     end
     class = class or self.Class
-    local inDatabase = Items[rightSword.Name]
-    if rightSword and inDatabase.Class.Value == class and inDatabase.Level.Value <= getLevel() then
+    if rightSword and Items[rightSword.Name].Class.Value == class then
         self.Sword = rightSword
         return rightSword
     end
     for _, item in next, Inventory:GetChildren() do
-        inDatabase = Items[item.Name]
+        local inDatabase = Items[item.Name]
         if inDatabase.Type.Value == 'Weapon'
             and inDatabase.Class.Value == class
             and inDatabase.Level.Value <= getLevel()
@@ -1266,99 +1294,123 @@ KillauraSkill.GetSword = function(class)
     end
 end
 
-local swordDamage = 0
-local updateSwordDamage = function()
-    if leftSword then
-        swordDamage = math.floor(getItemStat(rightSword) * 0.6 + getItemStat(leftSword) * 0.4)
-    elseif rightSword then
-        swordDamage = getItemStat(rightSword)
-    else
-        swordDamage = 0
-    end
-end
+-- local swordDamage = 0
+-- local updateSwordDamage = function()
+--     if leftSword then
+--         swordDamage = math.floor(getItemDamageOrDefense(rightSword) * 0.6 + getItemDamageOrDefense(leftSword) * 0.4)
+--     elseif rightSword then
+--         swordDamage = getItemDamageOrDefense(rightSword)
+--     else
+--         swordDamage = 0
+--     end
+-- end
 
-updateSwordDamage()
+-- updateSwordDamage()
 
 Equip.Right.Changed:Connect(function(id)
     rightSword = getItemById(id)
-    updateSwordDamage()
+    -- updateSwordDamage()
 end)
 
 Equip.Left.Changed:Connect(function(id)
     leftSword = getItemById(id)
-    updateSwordDamage()
+    -- updateSwordDamage()
 end)
 
-local getKillauraThreads = (function()
-    local skillMultipliers = {
-        ['Sweeping Strike'] = 3,
-        ['Leaping Slash'] = 3.3,
-        ['Summon Pistol'] = 4.35,
-        ['Meteor Shot'] = 3.1
-    }
+-- local getKillauraThreads = (function()
+--     local skillMultipliers = {
+--         ['Sweeping Strike'] = 3,
+--         ['Leaping Slash'] = 3.3,
+--         ['Summon Pistol'] = 4.35,
+--         ['Meteor Shot'] = 3.1
+--     }
 
-    local skillBaseDamages = {
-        ['Summon Pistol'] = 35000,
-        ['Meteor Shot'] = 55000
-    }
+--     local skillBaseDamages = {
+--         ['Summon Pistol'] = 35000,
+--         ['Meteor Shot'] = 55000
+--     }
 
-    return function(entity)
-        if not entity.Health:FindFirstChild(LocalPlayer.Name) then
-            return 1
-        end
+--     return function(entity)
+--         if not entity.Health:FindFirstChild(LocalPlayer.Name) then
+--             return 1
+--         end
 
-        if Options.KillauraThreads.Value ~= Options.KillauraThreads.Max then
-            return Options.KillauraThreads.Value
-        end
+--         if Options.KillauraThreads.Value < Options.KillauraThreads.Max then
+--             return Options.KillauraThreads.Value
+--         end
 
-        if KillauraSkill.LastHit then
-            return 3
-        end
+--         -- if KillauraSkill.LastHit then
+--         --     return 3
+--         -- end
 
-        if entity:FindFirstChild('HitLives') and entity.HitLives.Value <= 3 then
-            return entity.HitLives.Value
-        end
+--         if entity:FindFirstChild('HitLives') then -- and (entity.HitLives.Value <= 3)
+--             return entity.HitLives.Value
+--         end
 
-        local damage = swordDamage
+--         local damage = swordDamage
 
-        if KillauraSkill.Name and KillauraSkill.Active then
-            damage = swordDamage * skillMultipliers[KillauraSkill.Name]
-            damage = math.max(damage, skillBaseDamages[KillauraSkill.Name] or 0)
-        end
+--         if KillauraSkill.Name and KillauraSkill.Active then
+--             damage = swordDamage * skillMultipliers[KillauraSkill.Name]
+--             damage = math.max(damage, skillBaseDamages[KillauraSkill.Name] or 0)
+--         end
 
-        if entity:FindFirstChild('MaxDamagePercent') then
-            local maxDamage = entity.Health.MaxValue * entity.MaxDamagePercent.Value / 100
-            damage = math.min(damage, maxDamage)
-        end
+--         if damage == 0 then
+--             return 0
+--         end
 
-        local hitsLeft = math.ceil(entity.Health.Value / damage)
-        if hitsLeft <= 3 then
-            return hitsLeft
-        end
+--         if entity:FindFirstChild('MaxDamagePercent') then
+--             local maxDamage = entity.Health.MaxValue * entity.MaxDamagePercent.Value / 100
+--             damage = math.min(damage, maxDamage)
+--         end
 
-        return 1
-    end
-end)()
+--         local hitsLeft = math.ceil(entity.Health.Value / damage)
+--         -- if hitsLeft <= 3 then
+--             return hitsLeft
+--         -- end
+--     end
+-- end)()
+
+local skillDirection = Vector3.new(0/0, 0/0, 0/0)
 
 local MiscSkill = {}
+
+local skillDurations = {
+    ["Sweeping Strike"] = 1.4,
+    ["Downward Smash"] = 1,
+    ["Leaping Slash"] = 1.8,
+    ["Piercing Dash"] = 1,
+    ["Beam Rush"] = 2.8,
+    -- ["Reaper Frenzy"] = 4.2,
+    -- ["Whirlwind Spin"] = 1,
+
+    -- ["Infinity Slash"] = 1,
+    ["Summon Pistol"] = 0.2,
+    ["Meteor Shot"] = 1,
+
+    -- idk these durations + cant test bc dont have skills :(
+    ["Spearitual Strike"] = 1,
+    ["Cursed Three Fold Slash"] = 3,
+    ["Water Blast"] = 7,
+}
 
 KillauraSkill._use = function()
     if MiscSkill._onKillauraSkill then
         MiscSkill._onKillauraSkill()
     end
     local self = KillauraSkill
-    Event:FireServer('Skills', { 'UseSkill', self.Name })
+    Event:FireServer('Skills', { 'UseSkill', self.Name, { Direction = skillDirection } })
     self.OnCooldown = true
     self.Active = true
-    task.delay(2.5, function()
-        self.LastHit = true
-        task.wait(0.5)
-        self.LastHit = false
+    local skillDuration = skillDurations[self.Name] or 0
+    task.delay(skillDuration, function()
+        -- self.LastHit = true
+        -- task.wait(0.5)
+        -- self.LastHit = false
         self.Active = false
         if Toggles.ResetOnLowStamina.Value and Stamina.Value < KillauraSkill.Cost then
             Humanoid.Health = 0
         end
-        task.wait(self.Cooldown - 3)
+        task.wait(self.Cooldown - skillDuration)
         self.OnCooldown = false
     end)
 end
@@ -1377,7 +1429,7 @@ KillauraSkill.Use = function()
 
     if not self.GetSword() then
         Library:Notify("Get a " .. self.Class:lower() .. " you can equip first")
-        return Options.SkillToUse:SetValue()
+        return Options.MainSkill:SetValue()
     end
 
     if self.Sword ~= rightSword then
@@ -1395,6 +1447,7 @@ KillauraSkill.Use = function()
                 end
                 staminaOld = value
             end, 0.1)
+            task.wait(0.05)
             InvokeFunction('Equipment', { 'EquipWeapon', rightSwordOld, 'Right' })
             if leftSwordOld then
                 InvokeFunction('Equipment', { 'EquipWeapon', leftSwordOld, 'Left' })
@@ -1442,28 +1495,35 @@ local attack = function(target)
 
     if isDead(target) then return end
 
-    local threads = getKillauraThreads(target.Entity)
+    -- local threads = getKillauraThreads(target.Entity)
 
-    for _ = 1, threads do
+    -- for _ = 1, threads do
         dealDamage(target, KillauraSkill.Active and KillauraSkill.Name or nil)
-    end
+    -- end
 
     onCooldown[target] = true
-    task.delay(threads * Options.KillauraDelay.Value, function()
+    task.delay(Options.KillauraDelay.Value, function()
         onCooldown[target] = nil
     end)
 
     return true
 end
 
+local stopSwingFunction
 local swingFunction = (function()
     if not getgc then return end
     for _, func in next, getgc() do
         if type(func) == 'function' and debug.info(func, 'n') == 'Swing' then
+            stopSwingFunction = function() end
             return func
         end
     end
 end)()
+
+if RequiredServices and not swingFunction then
+    swingFunction = RequiredServices.Actions.StartSwing
+    stopSwingFunction = RequiredServices.Actions.StopSwing
+end
 
 Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
     toggleSwingDamage(false)
@@ -1472,9 +1532,12 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
 
         if Humanoid.Health == 0 then continue end
 
-        local attacked
+        local attacked = 0
 
         for _, target in next, Mobs:GetChildren() do
+            -- if attacked >= Options.KillauraMaxTargets.Value then
+            --     break
+            -- end
             if onCooldown[target] then continue end
             if isDead(target) then continue end
             local rootPart = target.HumanoidRootPart
@@ -1493,11 +1556,15 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
             if (targetPos - HumanoidRootPart.Position).Magnitude > range then
                 continue
             end
-            attacked = attack(target)
+            attack(target)
+            attacked += 1
         end
 
         if Toggles.AttackPlayers.Value then
             for _, player in next, Players:GetPlayers() do
+                -- if attacked >= Options.KillauraMaxTargets.Value then
+                --     break
+                -- end
                 if player == LocalPlayer then continue end
                 if Options.IgnorePlayers.Value[player] then continue end
                 local target = player.Character
@@ -1512,28 +1579,21 @@ Killaura:AddToggle('Killaura', { Text = 'Enabled' }):OnChanged(function()
                 if (rootPart.Position - HumanoidRootPart.Position).Magnitude > range then
                     continue
                 end
-                attacked = attack(target)
+                attack(target)
+                attacked += 1
             end
         end
 
-        if Toggles.KillauraSwing.Value then
-            if swingFunction then -- this is preferred since it ignores the swinging state
-                if attacked then
-                    task.spawn(swingFunction)
-                end
-            elseif RequiredServices then
-                if attacked then
-                    task.spawn(RequiredServices.Actions.StartSwing)
-                else
-                    task.spawn(RequiredServices.Actions.StopSwing)
-                end
-            end
+        if Toggles.KillauraSwing.Value and swingFunction then
+            task.spawn(attacked > 0 and swingFunction or stopSwingFunction)
         end
     end
     toggleSwingDamage(true)
 end)
 
-Killaura:AddToggle('KillauraSwing', { Text = 'Swing' })
+if swingFunction then
+    Killaura:AddToggle('KillauraSwing', { Text = 'Swing', Default = true })
+end
 
 Killaura:AddSlider('KillauraDelay', {
     Text = 'Delay',
@@ -1542,22 +1602,22 @@ Killaura:AddSlider('KillauraDelay', {
     Max = 2,
     Rounding = 2,
     Suffix = 's',
-    FormatDisplayValue = function(slider, value)
-        if value < 0.3 then return `{value}s/{slider.Max}s (debounce!)` end
-	end
+    -- FormatDisplayValue = function(slider, value)
+    --     if value < 0.3 then return `{value}s/{slider.Max}s (debounce!)` end
+	-- end
 })
-Killaura:AddSlider('KillauraThreads', {
-    Text = 'Threads',
-    Default = 4,
-    Min = 1,
-    Max = 4,
-    Rounding = 0,
-    Suffix = ' attack(s)',
-    FormatDisplayValue = function(slider, value)
-        if value == slider.Max then return 'Auto' end
-        return `{value} attack(s)/3 attack(s)`
-	end
-})
+-- Killaura:AddSlider('KillauraThreads', {
+--     Text = 'Threads',
+--     Default = 11,
+--     Min = 1,
+--     Max = 11,
+--     Rounding = 0,
+--     Suffix = ' attack(s)',
+--     FormatDisplayValue = function(slider, value)
+--         if value == slider.Max then return 'Auto' end
+--         return `{value} attack(s)/10 attack(s)`
+-- 	end
+-- })
 Killaura:AddSlider('KillauraRange', {
     Text = 'Range',
     Default = 120,
@@ -1569,10 +1629,18 @@ Killaura:AddSlider('KillauraRange', {
         if value == slider.Max then return 'Auto' end
 	end
 })
+-- Killaura:AddSlider('KillauraMaxTargets', {
+--     Text = 'Max targets',
+--     Default = 1,
+--     Min = 1,
+--     Max = 100,
+--     Rounding = 0,
+--     Suffix = ''
+-- })
 Killaura:AddToggle('AttackPlayers', {Text = 'Attack players' })
 Killaura:AddDropdown('IgnorePlayers', { Text = 'Ignore players', Values = {}, Multi = true, SpecialType = 'Player' })
 
-Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values = {}, AllowNull = true })
+Killaura:AddDropdown('MainSkill', { Text = 'Main skill', Default = 1, Values = {}, AllowNull = true })
 :OnChanged(function(value)
     if not value then
         return KillauraSkill.Init()
@@ -1586,7 +1654,7 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
 
         if not KillauraSkill.GetSword(class) then
             Library:Notify("Get a " .. class .. " you can equip first")
-            return Options.SkillToUse:SetValue()
+            return Options.MainSkill:SetValue()
         end
     end
 
@@ -1599,47 +1667,48 @@ Killaura:AddDropdown('SkillToUse', { Text = 'Skill to use', Default = 1, Values 
     )
 end)
 
-if getLevel() >= 21 then
-    table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
-    table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
-    Options.SkillToUse:SetValues(Options.SkillToUse.Values)
-else
-    local LevelConnection
-    LevelConnection = Level.Changed:Connect(function()
-        if getLevel() < 21 then return end
-        table.insert(Options.SkillToUse.Values, 'Sweeping Strike (x3)')
-        table.insert(Options.SkillToUse.Values, 'Leaping Slash (x3.3)')
-        Options.SkillToUse:SetValues(Options.SkillToUse.Values)
-        LevelConnection:Disconnect()
-    end)
-end
+do
+    local mainSkillNames = {
+        ["Sweeping Strike"] = "Sweeping Strike (x3, 1.4s)",
+        ["Downward Smash"] = "Downward Smash (x2.75, 1s)",
+        ["Leaping Slash"] = "Leaping Slash (x3.3, 1.8s)",
+        ["Piercing Dash"] = "Piercing Dash (x3.2, 1s)",
+        ["Beam Rush"] = "Beam Rush (x2.8, 2.8s)",
+        -- ["Reaper Frenzy"] = "Reaper Frenzy (x1)",
+        -- ["Whirlwind Spin"] = "Whirlwind Spin (x4)",
 
-if getLevel() >= 60 and Profile.Skills:FindFirstChild('Summon Pistol') then
-    table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
-    Options.SkillToUse:SetValues(Options.SkillToUse.Values)
-else
-    local skillConnection
-    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
-        if getLevel() < 60 then return end
-        if skill.Name ~= 'Summon Pistol' then return end
-        table.insert(Options.SkillToUse.Values, 'Summon Pistol (x4.35) (35k base)')
-        Options.SkillToUse:SetValues(Options.SkillToUse.Values)
-        skillConnection:Disconnect()
-    end)
-end
+        -- ["Infinity Slash"] = "Infinity Slash (x5)",
+        ["Summon Pistol"] = "Summon Pistol (x4.35, 0.2s)",
+        ["Meteor Shot"] = "Meteor Shot (x3.1, 1s)",
 
-if getLevel() >= 200 and Profile.Skills:FindFirstChild('Meteor Shot') then
-    table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
-    Options.SkillToUse:SetValues(Options.SkillToUse.Values)
-else
-    local skillConnection
-    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
-        if getLevel() < 200 then return end
-        if skill.Name ~= 'Meteor Shot' then return end
-        table.insert(Options.SkillToUse.Values, 'Meteor Shot (x3.1) (55k base)')
-        Options.SkillToUse:SetValues(Options.SkillToUse.Values)
-        skillConnection:Disconnect()
+        -- ["Eggsellent Shield"] = "Eggsellent Shield (x4) (15k base)",
+        -- ["Everfrost Strike"] = "Everfrost Strike (x3.5) (10k base)",
+        -- ["Realm Judgement"] = "Realm Judgement (x1.25) (10k base)",
+        -- ["Realm Banishment"] = "Realm Banishment (x0) (25k base)",
+
+        ["Spearitual Strike"] = "Spearitual Strike (x7) (40k base)",
+        ["Cursed Three Fold Slash"] = "Cursed Three Fold Slash (x5.1)",
+        ["Water Blast"] = "Water Blast (x4) (75k base)",
+    }
+
+    MySkills.ChildAdded:Connect(function(skill)
+        local displayName = mainSkillNames[skill.Name]
+        if not displayName then return end
+        table.insert(Options.MainSkill.Values, displayName)
+        Options.MainSkill:SetValues(Options.MainSkill.Values)
     end)
+
+    for skillName, displayName in next, mainSkillNames do
+        local SkillInDatabase = Skills:FindFirstChild(skillName)
+        if SkillInDatabase:FindFirstChild("Unlock") and not MySkills:FindFirstChild(skillName) then
+            continue
+        end
+        if SkillInDatabase:FindFirstChild("Level") and getLevel() < SkillInDatabase.Level.Value then
+            continue
+        end
+        table.insert(Options.MainSkill.Values, displayName)
+    end
+    Options.MainSkill:SetValues(Options.MainSkill.Values)
 end
 
 -- Killaura:AddToggle('UseSkillPreemptively', { Text = 'Use skill preemptively' })
@@ -1661,14 +1730,14 @@ MiscSkill.Init()
 
 MiscSkill._use = function()
     local self = MiscSkill
-    Event:FireServer('Skills', { 'UseSkill', self.Name })
+    Event:FireServer('Skills', { 'UseSkill', self.Name, { Direction = skillDirection } })
     self.OnCooldown = true
     task.delay(self.Cooldown, function()
         self.OnCooldown = false
     end)
 end
 
-Killaura:AddDropdown('MiscSkillToUse', { Text = 'Misc skill to use', Values = {}, AllowNull = true })
+Killaura:AddDropdown('MiscSkill', { Text = 'Misc skill', Values = {}, AllowNull = true })
 :OnChanged(function(value)
     local self = MiscSkill
 
@@ -1703,7 +1772,7 @@ Killaura:AddDropdown('MiscSkillToUse', { Text = 'Misc skill to use', Values = {}
         end
         self._connections.stamina = Stamina.Changed:Connect(func)
     elseif name == 'Cursed Enhancement' then
-        self._onKillauraSkill = function()
+        local func = function()
             if Stamina.Value < (self.Cost + KillauraSkill.Cost) then return end
             if self.OnCooldown then return end
             self._use()
@@ -1715,60 +1784,36 @@ Killaura:AddDropdown('MiscSkillToUse', { Text = 'Misc skill to use', Values = {}
                 0.1
             )
         end
+        self._connections.stamina = Stamina.Changed:Connect(func)
     end
 end)
 
-if Profile.Skills:FindFirstChild('Cursed Enhancement') then
-    table.insert(Options.MiscSkillToUse.Values, 'Cursed Enhancement (x2.5)')
-    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-else
-    local skillConnection
-    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
-        if skill.Name ~= 'Cursed Enhancement' then return end
-        table.insert(Options.MiscSkillToUse.Values, 'Cursed Enhancement (x2.5)')
-        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-        skillConnection:Disconnect()
-    end)
-end
+do
+    local miscSkillNames = {
+        ["Cursed Enhancement"] = "Cursed Enhancement (x2.5)",
+        ["Heal"] = "Heal (30%)",
+        ["Mending Spirit"] = "Mending Spirit (4%/s)",
+        ["Summon Tree"] = "Summon Tree (6%/s)",
+    }
 
-if getLevel() >= 50 then
-    table.insert(Options.MiscSkillToUse.Values, 'Heal (30%)')
-    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-else
-    local skillConnection
-    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
-        if getLevel() < 50 then return end
-        if skill.Name ~= 'Heal' then return end
-        table.insert(Options.MiscSkillToUse.Values, 'Heal (30%)')
-        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-        skillConnection:Disconnect()
+    MySkills.ChildAdded:Connect(function(skill)
+        local displayName = miscSkillNames[skill.Name]
+        if not displayName then return end
+        table.insert(Options.MiscSkill.Values, displayName)
+        Options.MiscSkill:SetValues(Options.MiscSkill.Values)
     end)
-end
 
-if Profile.Skills:FindFirstChild('Mending Spirit') then
-    table.insert(Options.MiscSkillToUse.Values, 'Mending Spirit (4%/s)')
-    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-else
-    local skillConnection
-    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
-        if skill.Name ~= 'Mending Spirit' then return end
-        table.insert(Options.MiscSkillToUse.Values, 'Mending Spirit (4%/s)')
-        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-        skillConnection:Disconnect()
-    end)
-end
-
-if Profile.Skills:FindFirstChild('Summon Tree') then
-    table.insert(Options.MiscSkillToUse.Values, 'Summon Tree (6%/s)')
-    Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-else
-    local skillConnection
-    skillConnection = Profile.Skills.ChildAdded:Connect(function(skill)
-        if skill.Name ~= 'Summon Tree' then return end
-        table.insert(Options.MiscSkillToUse.Values, 'Summon Tree (6%/s)')
-        Options.MiscSkillToUse:SetValues(Options.MiscSkillToUse.Values)
-        skillConnection:Disconnect()
-    end)
+    for skillName, displayName in next, miscSkillNames do
+        local SkillInDatabase = Skills:FindFirstChild(skillName)
+        if SkillInDatabase:FindFirstChild("Unlock") and not MySkills:FindFirstChild(skillName) then
+            continue
+        end
+        if SkillInDatabase:FindFirstChild("Level") and getLevel() < SkillInDatabase.Level.Value then
+            continue
+        end
+        table.insert(Options.MiscSkill.Values, displayName)
+    end
+    Options.MiscSkill:SetValues(Options.MiscSkill.Values)
 end
 
 local AdditionalCheats = Main:AddRightGroupbox('Additional cheats')
@@ -2092,6 +2137,7 @@ end
 
 local getCurrentAnimSetting = function()
     if leftSword then return 'DualWield' end
+    if not rightSword then return 'Unarmed' end
     local SwordClass = Items[rightSword.Name].Class.Value
     return SwordClass == '1HSword' and 'SingleSword' or SwordClass
 end
@@ -2118,7 +2164,8 @@ local animPackAnimSettings = {
     Noble = 'SingleSword',
     Vigilante = 'DualWield',
     SwissSabre = 'Rapier',
-    Swiftstrike = 'Spear'
+    Swiftstrike = 'Spear',
+    Reaper = 'Scythe'
 }
 
 local unownedAnimPacks = {}
@@ -2244,39 +2291,39 @@ end
 
 local Misc2 = Miscs:AddTab('More misc')
 
-local equipBestWeaponAndArmor = function()
-    if not (Toggles.EquipBestWeaponAndArmor and Toggles.EquipBestWeaponAndArmor.Value) then return end
+local equipBestWeapon = function()
+    if not Toggles.EquipBestWeapon.Value then return end
+    if rightSword and Items[rightSword.Name].Level.Value > getLevel() then return end
 
-    local highestDefense = 0
     local highestDamage = 0
-    local bestArmor, bestWeapon
+    local bestKatana = false
+    local highestStamina = 0
+    local bestWeapon
 
     for _, item in next, Inventory:GetChildren() do
         local inDatabase = Items[item.Name]
-
-        if (inDatabase:FindFirstChild('Level') and inDatabase.Level.Value or 0) > getLevel() then
-            continue
-        end
-
+        local level = inDatabase:FindFirstChild('Level') and inDatabase.Level.Value or 0
+        if level > getLevel() then continue end
         local itemType = inDatabase.Type.Value
-
-        if itemType == 'Clothing' then
-            local defense = getItemStat(item)
-            if defense > highestDefense then
-                highestDefense = defense
-                bestArmor = item
-            end
-        elseif itemType == 'Weapon' then
-            local damage = getItemStat(item)
-            if damage > highestDamage then
-                highestDamage = damage
-                bestWeapon = item
-            end
+        if itemType ~= 'Weapon' then continue end
+        local damage = getItemDamageOrDefense(item)
+        local isKatana = inDatabase.Class.Value == 'Katana'
+        local stamina = inDatabase:FindFirstChild('Buffs')
+            and inDatabase.Buffs:FindFirstChild('StaminaRegeneration')
+            and inDatabase.Buffs.StaminaRegeneration.Value
+            or 0
+        if (
+			damage > highestDamage or (
+                damage == highestDamage and isKatana and (
+                    not bestKatana or stamina > highestStamina
+                )
+            )
+        ) then
+            highestDamage = damage
+            bestKatana = isKatana
+            highestStamina = stamina
+            bestWeapon = item
         end
-    end
-
-    if bestArmor and Equip.Clothing.Value ~= bestArmor.Value then
-        task.spawn(InvokeFunction, 'Equipment', { 'Wear', bestArmor })
     end
 
     if bestWeapon and Equip.Right.Value ~= bestWeapon.Value then
@@ -2284,9 +2331,98 @@ local equipBestWeaponAndArmor = function()
     end
 end
 
-Misc2:AddToggle('EquipBestWeaponAndArmor', { Text = 'Equip best weapon and armor' }):OnChanged(equipBestWeaponAndArmor)
-Inventory.ChildAdded:Connect(equipBestWeaponAndArmor)
-Level.Changed:Connect(equipBestWeaponAndArmor)
+local equipBestArmor = function()
+    if not Toggles.EquipBestArmor.Value then return end
+    local armor = getItemById(Equip.Clothing.Value)
+    if armor and Items[armor.Name].Level.Value > getLevel() then return end
+
+    local highestDefense = 0
+    local highestStamina = 0
+    local bestArmor
+
+    for _, item in next, Inventory:GetChildren() do
+        local inDatabase = Items[item.Name]
+        local level = inDatabase:FindFirstChild('Level') and inDatabase.Level.Value or 0
+        if level > getLevel() then continue end
+        local itemType = inDatabase.Type.Value
+        if itemType ~= 'Clothing' then continue end
+        local defense = getItemDamageOrDefense(item)
+        local stamina = inDatabase:FindFirstChild('Buffs')
+            and inDatabase.Buffs:FindFirstChild('StaminaRegeneration')
+            and inDatabase.Buffs.StaminaRegeneration.Value
+            or 0
+        if defense > highestDefense or (
+            defense == highestDefense and stamina > highestStamina
+        ) then
+            highestDefense = defense
+            highestStamina = stamina
+            bestArmor = item
+        end
+    end
+
+    if bestArmor and Equip.Clothing.Value ~= bestArmor.Value then
+        InvokeFunction('Equipment', { 'Wear', bestArmor })
+    end
+end
+
+local equipBestAccessory = function()
+    if not Toggles.EquipBestAccessory.Value then return end
+
+    local highestStamina = 0
+    local highestDefense = 0
+    local highestHealth = 0
+    local bestAccessory
+
+    for _, item in next, Inventory:GetChildren() do
+        local inDatabase = Items[item.Name]
+        local level = inDatabase:FindFirstChild('Level') and inDatabase.Level.Value or 0
+        if level > getLevel() then continue end
+        local itemType = inDatabase.Type.Value
+        if itemType ~= 'Accessory' then continue end
+        local Buffs = inDatabase:FindFirstChild('Buffs')
+        if not Buffs then continue end
+        local stamina = Buffs:FindFirstChild('StaminaRegeneration')
+            and Buffs.StaminaRegeneration.Value
+            or 0
+        local health = Buffs:FindFirstChild('HealthRegeneration')
+            and Buffs.HealthRegeneration.Value
+            or 0
+        local defense = inDatabase:FindFirstChild('Stats')
+            and inDatabase.Stats:FindFirstChild('Defense')
+            and inDatabase.Stats.Defense.Value
+            or 0
+        if stamina > highestStamina or (
+            stamina == highestStamina and (
+                defense > highestDefense or (
+                    defense == highestDefense and health > highestHealth
+                )
+            )
+        ) then
+            highestStamina = stamina
+            highestDefense = defense
+            highestHealth = health
+            bestAccessory = item
+        end
+    end
+
+    if not bestAccessory then return end
+
+    local accessory1 = Equip:FindFirstChild('Accessory1') and Equip.Accessory1.Value or 0
+    local accessory2 = Equip:FindFirstChild('Accessory2') and Equip.Accessory2.Value or 0
+    if accessory1 ~= bestAccessory.Value or accessory2 ~= bestAccessory.Value then
+        InvokeFunction('Equipment', { 'Wear', bestAccessory })
+        if accessory2 ~= 0 then
+            InvokeFunction('Equipment', { 'Unequip', accessory2 })
+        end
+        InvokeFunction('Equipment', { 'Wear', bestAccessory })
+    end
+end
+
+Misc2:AddToggle('EquipBestWeapon', { Text = 'Equip best weapon' }):OnChanged(equipBestWeapon)
+Misc2:AddToggle('EquipBestArmor', { Text = 'Equip best armor' }):OnChanged(equipBestArmor)
+Misc2:AddToggle('EquipBestAccessory', { Text = 'Equip best accessory' }):OnChanged(equipBestAccessory)
+Inventory.ChildAdded:Connect(equipBestWeapon)
+Level.Changed:Connect(equipBestWeapon)
 
 Misc2:AddToggle('ReturnOnDeath', { Text = 'Return on death' })
 Misc2:AddToggle('ResetOnLowStamina', { Text = 'Reset on low stamina' })
@@ -2309,13 +2445,29 @@ Profile.Locations.ChildAdded:Connect(function(location)
             teleporting = teleporting and teleporting.Destroying:Wait()
             break
         elseif response == 'You must be on a teleport pad to teleport!' then
-            Humanoid.Health = 0
+            if Profile:FindFirstChild('Checkpoint') then
+                Event:FireServer('Checkpoints', { 'TeleportToSpawn' })
+            else
+                Humanoid.Health = 0
+            end
         else
             break
         end
         task.wait(0.3)
     end
 end)
+
+if setfflag
+    and pcall(setfflag, "NextGenReplicatorEnabledWrite4", "True")
+    and pcall(setfflag, "NextGenReplicatorEnabledWrite4", "False")
+then
+    Misc2:AddToggle('Desync', { Text = 'Desync' }):OnChanged(function(value)
+        desyncChanged = true
+        setfflag("NextGenReplicatorEnabledWrite4", value and "True" or "False")
+        task.wait(0.1)
+        Humanoid.Health = 0
+    end)
+end
 
 local Misc = Window:AddTab('Misc', 'shuffle')
 
@@ -2584,11 +2736,11 @@ end)
 
 local ownedSkillNames = {}
 
-for _, skill in next, Profile.Skills:GetChildren() do
+for _, skill in next, MySkills:GetChildren() do
     table.insert(ownedSkillNames, skill.Name)
 end
 
-Profile.Skills.ChildAdded:Connect(function(skill)
+MySkills.ChildAdded:Connect(function(skill)
     if table.find(ownedSkillNames, skill.Name) then return end
     table.insert(ownedSkillNames, skill.Name)
 
@@ -2832,7 +2984,7 @@ end)
 FarmingKicks:AddToggle('LevelKick', { Text = 'Level kick' })
 FarmingKicks:AddSlider('KickLevel', { Text = 'Kick level', Default = 130, Min = 0, Max = 400, Rounding = 0, Compact = true })
 
-Profile.Skills.ChildAdded:Connect(function(skill)
+MySkills.ChildAdded:Connect(function(skill)
     if not Toggles.SkillKick.Value then return end
     LocalPlayer:Kick(`\n\n{skill.Name} acquired at {os.date('%I:%M:%S %p')}\n`)
 end)
@@ -2915,22 +3067,22 @@ if swingFunction then
     SwingCheats:AddDivider()
 end
 
-if RequiredServices then
-    SwingCheats:AddSlider('SwingThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 3, Rounding = 0, Suffix = ' attack(s)' })
+-- if RequiredServices then
+--     SwingCheats:AddSlider('SwingThreads', { Text = 'Threads', Default = 1, Min = 1, Max = 10, Rounding = 0, Suffix = ' attack(s)' })
 
-    RequiredServices.Combat.DealDamage = function(target, attackName)
-        if Toggles.Killaura.Value or onCooldown[target] then return end
+--     RequiredServices.Combat.DealDamage = function(target, attackName)
+--         if Toggles.Killaura.Value or onCooldown[target] then return end
 
-        for _ = 1, Options.SwingThreads.Value do
-            dealDamage(target, attackName)
-        end
+--         for _ = 1, Options.SwingThreads.Value do
+--             dealDamage(target, attackName)
+--         end
 
-        onCooldown[target] = true
-        task.delay(Options.SwingThreads.Value * 0.25, function()
-            onCooldown[target] = nil
-        end)
-    end
-end
+--         onCooldown[target] = true
+--         task.delay(Options.SwingThreads.Value * 0.25, function()
+--             onCooldown[target] = nil
+--         end)
+--     end
+-- end
 
 local inTrade = Instance.new('BoolValue')
 local tradeLastSent = 0
