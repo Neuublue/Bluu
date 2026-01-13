@@ -3275,6 +3275,27 @@ Menu:AddToggle('Autoexecute', { Text = 'Autoexecute', Default = autoexecute }):O
     writefile('Bluu/Swordburst 2/autoexec', tostring(value))
 end)
 
+Menu:AddButton("Unload Script", function()
+    for _, toggle in next, Library.Toggles do
+        if toggle.Value then
+            toggle:SetValue(false)
+        end
+    end
+
+    pcall(function()
+        linearVelocity.Parent = nil
+        waypoint:Destroy()
+        Humanoid.WalkSpeed = 20
+        Camera.CameraSubject = Character
+        LocalPlayer.CameraMaxZoomDistance = defaultCameraMaxZoomDistance
+        LocalPlayer.DevCameraOcclusionMode = 0
+        Chat.Size = chatSize
+        Library:Unload()
+    end)
+
+    getgenv().Bluu = false
+end)
+
 local ThemeManager = loadstring(game:HttpGet(UIRepo .. 'addons/ThemeManager.lua'))()
 ThemeManager:SetLibrary(Library)
 ThemeManager:SetFolder('Bluu/Swordburst 2')
