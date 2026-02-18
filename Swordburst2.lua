@@ -2517,7 +2517,7 @@ ItemsBox:AddDropdown('UseItem', { Text = 'Use item(s)', Values = unboxableItemNa
     local item = unboxableItems[itemName]
     if not item then return end
 
-    Event:FireServer('Equipment', { 'UseItem', item, 1000 })
+    Function:InvokeServer('Equipment', { 'UseItem', item, 1000 })
 end)
 
 do
