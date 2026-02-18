@@ -2460,17 +2460,17 @@ Profile.Locations.ChildAdded:Connect(function(location)
     end
 end)
 
-if setfflag
-    and pcall(setfflag, "NextGenReplicatorEnabledWrite4", "True")
-    and pcall(setfflag, "NextGenReplicatorEnabledWrite4", "False")
-then
-    Misc2:AddToggle('Desync', { Text = 'Desync' }):OnChanged(function(value)
-        desyncChanged = true
-        setfflag("NextGenReplicatorEnabledWrite4", value and "True" or "False")
-        task.wait(0.1)
-        Humanoid.Health = 0
-    end)
-end
+-- if setfflag
+--     and pcall(setfflag, "NextGenReplicatorEnabledWrite4", "True")
+--     and pcall(setfflag, "NextGenReplicatorEnabledWrite4", "False")
+-- then
+--     Misc2:AddToggle('Desync', { Text = 'Desync' }):OnChanged(function(value)
+--         desyncChanged = true
+--         setfflag("NextGenReplicatorEnabledWrite4", value and "True" or "False")
+--         task.wait(0.1)
+--         Humanoid.Health = 0
+--     end)
+-- end
 
 local Misc = Window:AddTab('Misc', 'shuffle')
 
@@ -2517,9 +2517,7 @@ ItemsBox:AddDropdown('UseItem', { Text = 'Use item(s)', Values = unboxableItemNa
     local item = unboxableItems[itemName]
     if not item then return end
 
-    for _ = 1, item:FindFirstChild('Count') and item.Count.Value or 1 do
-        Event:FireServer('Equipment', { 'UseItem', item })
-    end
+    Event:FireServer('Equipment', { 'UseItem', item, 1000 })
 end)
 
 do
@@ -2906,6 +2904,7 @@ local mods = {
     102583875,
     492574273,
     468344010,
+    1560324163
 }
 
 ModDetector:AddToggle('Autokick', { Text = 'Autokick' })
@@ -3276,7 +3275,7 @@ Menu:AddToggle('Autoexecute', { Text = 'Autoexecute', Default = autoexecute }):O
 end)
 
 Menu:AddButton("Unload Script", function()
-    for _, toggle in next, Library.Toggles do
+    for _, toggle in next, Toggles do
         if toggle.Value then
             toggle:SetValue(false)
         end
