@@ -93,7 +93,7 @@ local Profile = Profiles:WaitForChild(LocalPlayer.Name)
 
 local MySkills = Profile:WaitForChild('Skills')
 local Inventory = Profile:WaitForChild('Inventory')
-local AnimPacks = Profile:WaitForChild('AnimPacks')
+local Gamepasses = Profile:WaitForChild('Gamepasses')
 local Equip = Profile:WaitForChild('Equip')
 
 local Exp = Profile:WaitForChild('Stats'):WaitForChild('Exp')
@@ -2156,7 +2156,7 @@ Misc1:AddDropdown('ChangeAnimationPack', {
         'SetAnimPack', {
             Name = animPackName,
             Value = getCurrentAnimSetting(),
-            Parent = AnimPacks
+            Parent = Gamepasses
         }
     })
 end)
@@ -2173,7 +2173,7 @@ local animPackAnimSettings = {
 
 local unownedAnimPacks = {}
 for animPackName, swordClass in next, animPackAnimSettings do
-    if AnimPacks:FindFirstChild(animPackName) then continue end
+    if Gamepasses:FindFirstChild(animPackName) then continue end
     local animPack = Instance.new('StringValue')
     animPack.Name = animPackName
     animPack.Value = swordClass
@@ -2182,7 +2182,7 @@ end
 
 Misc1:AddToggle('UnlockAllAnimations', { Text = 'Unlock all animations' }):OnChanged(function(value)
     for _, animPack in next, unownedAnimPacks do
-        animPack.Parent = value and AnimPacks or nil
+        animPack.Parent = value and Gamepasses or nil
     end
 end)
 
@@ -2202,7 +2202,7 @@ PlayerUI.MainFrame.TabFrames.Settings.Attachments.AnimPacks.ChildAdded:Connect(f
             'SetAnimPack', {
                 Name = animPackName,
                 Value = swordClass,
-                Parent = AnimPacks
+                Parent = Gamepasses
             }
         })
     end)
