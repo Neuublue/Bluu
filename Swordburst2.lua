@@ -2171,7 +2171,6 @@ Misc1:AddDropdown('ChangeAnimationPack', {
 }):OnChanged(function(animPackName)
     if not animPackName then return end
     Options.ChangeAnimationPack:SetValue()
-    if not unownedAnimPacks[animPackName] then return end
     local swordClass = getCurrentAnimSetting()
     local animSetting = Profile.AnimSettings[swordClass]
     animSetting.Value = animSetting.Value == animPackName and '' or animPackName
