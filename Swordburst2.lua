@@ -23,49 +23,6 @@ if queue_on_teleport then
     ]])
 end
 
-local sendWebhook = (function()
-    local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
-    local HttpService = game:GetService('HttpService')
-
-    return function(url, body, ping)
-        assert(type(url) == 'string')
-        assert(type(body) == 'table')
-        if not string.match(url, '^https://discord') then return end
-
-        body.content = ping and '@everyone' or nil
-        body.username = 'Bluu'
-        body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-
-        local embed = type(body.embeds) == 'table' and body.embeds[1]
-        if embed then
-            embed.timestamp = DateTime:now():ToIsoDate()
-            embed.footer = {
-                text = 'Bluu',
-                icon_url = body.avatar_url
-            }
-        end
-
-        http_request({
-            Url = url,
-            Body = HttpService:JSONEncode(body),
-            Method = 'POST',
-            Headers = { ['content-type'] = 'application/json' }
-        })
-    end
-end)()
-
-local sendTestMessage = function(url)
-    sendWebhook(
-        url, {
-            embeds = {{
-                title = 'This is a test message',
-                description = `You'll be notified to this webhook`,
-                color = 0x00ff00
-            }}
-        }, (Toggles.PingInMessage and Toggles.PingInMessage.Value)
-    )
-end
-
 local Players = game:GetService('Players')
 local LocalPlayer = Players.LocalPlayer
 if not LocalPlayer then
@@ -277,6 +234,49 @@ local Window = Library:CreateWindow({
     -- MenuFadeTime = 0.1,
     Size = UDim2.fromOffset(700, 500)
 })
+
+local sendWebhook = (function()
+    local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
+    local HttpService = game:GetService('HttpService')
+
+    return function(url, body, ping)
+        assert(type(url) == 'string')
+        assert(type(body) == 'table')
+        if not string.match(url, '^https://discord') then return end
+
+        body.content = ping and '@everyone' or nil
+        body.username = 'Bluu'
+        body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
+
+        local embed = type(body.embeds) == 'table' and body.embeds[1]
+        if embed then
+            embed.timestamp = DateTime:now():ToIsoDate()
+            embed.footer = {
+                text = 'Bluu',
+                icon_url = body.avatar_url
+            }
+        end
+
+        http_request({
+            Url = url,
+            Body = HttpService:JSONEncode(body),
+            Method = 'POST',
+            Headers = { ['content-type'] = 'application/json' }
+        })
+    end
+end)()
+
+local sendTestMessage = function(url)
+    sendWebhook(
+        url, {
+            embeds = {{
+                title = 'This is a test message',
+                description = `You'll be notified to this webhook`,
+                color = 0x00ff00
+            }}
+        }, (Toggles.PingInMessage and Toggles.PingInMessage.Value)
+    )
+end
 
 local Main = Window:AddTab('Main', 'user')
 
@@ -2145,22 +2145,6 @@ local getCurrentAnimSetting = function()
     return SwordClass == '1HSword' and 'SingleSword' or SwordClass
 end
 
-Misc1:AddDropdown('ChangeAnimationPack', {
-    Text = 'Change animation pack',
-    Values = AnimPackNames,
-    AllowNull = true
-}):OnChanged(function(animPackName)
-    if not animPackName then return end
-    Options.ChangeAnimationPack:SetValue()
-    Function:InvokeServer('CashShop', {
-        'SetAnimPack', {
-            Name = animPackName,
-            Value = getCurrentAnimSetting(),
-            Parent = Gamepasses
-        }
-    })
-end)
-
 local animPackAnimSettings = {
     Berserker = '2HSword',
     Ninja = 'Katana',
@@ -2180,6 +2164,19 @@ for animPackName, swordClass in next, animPackAnimSettings do
     unownedAnimPacks[animPackName] = animPack
 end
 
+Misc1:AddDropdown('ChangeAnimationPack', {
+    Text = 'Change animation pack',
+    Values = AnimPackNames,
+    AllowNull = true
+}):OnChanged(function(animPackName)
+    if not animPackName then return end
+    Options.ChangeAnimationPack:SetValue()
+    if not unownedAnimPacks[animPackName] then return end
+    local swordClass = getCurrentAnimSetting()
+    local animSetting = Profile.AnimSettings[swordClass]
+    animSetting.Value = animSetting.Value == animPackName and '' or animPackName
+end)
+
 Misc1:AddToggle('UnlockAllAnimations', { Text = 'Unlock all animations' }):OnChanged(function(value)
     for _, animPack in next, unownedAnimPacks do
         animPack.Parent = value and Gamepasses or nil
@@ -2196,15 +2193,8 @@ PlayerUI.MainFrame.TabFrames.Settings.Attachments.AnimPacks.ChildAdded:Connect(f
         end)()
         if not unownedAnimPacks[animPackName] then return end
         local swordClass = animPackAnimSettings[animPackName]
-        -- local animSetting = Profile.AnimSettings[swordClass]
-        -- animSetting.Value = animSetting.Value == animPackName and '' or animPackName
-        Function:InvokeServer('CashShop', {
-            'SetAnimPack', {
-                Name = animPackName,
-                Value = swordClass,
-                Parent = Gamepasses
-            }
-        })
+        local animSetting = Profile.AnimSettings[swordClass]
+        animSetting.Value = animSetting.Value == animPackName and '' or animPackName
     end)
 end)
 
@@ -2517,7 +2507,7 @@ ItemsBox:AddDropdown('UseItem', { Text = 'Use item(s)', Values = unboxableItemNa
     local item = unboxableItems[itemName]
     if not item then return end
 
-    Function:InvokeServer('Equipment', { 'UseItem', item, math.huge })
+    Function:InvokeServer('Equipment', { 'UseItem', item, 1 })
 end)
 
 do
