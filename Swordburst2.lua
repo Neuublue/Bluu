@@ -118,7 +118,7 @@ local MarketplaceService = game:GetService('MarketplaceService')
 local StarterGui = game:GetService('StarterGui')
 
 pcall(function()
-    for _, connection in getconnections(LocalPlayer.Idled) do
+    for _, connection in next, getconnections(LocalPlayer.Idled) do
         connection:Disable()
     end
 end)
@@ -193,7 +193,7 @@ local RequiredServices = (function()
         RequiredServices.TradeUI = require(UI.Trade)
         return RequiredServices
     end
-    for _, method in methods do
+    for _, method in next, methods do
         local success, RequiredServices = pcall(method)
         if success and type(RequiredServices) == 'table' then
             return RequiredServices
@@ -1723,7 +1723,7 @@ MiscSkill.Init = function(name, cost, cooldown)
     self.Cost = cost or 0
     self.Cooldown = cooldown or 0
     self.OnCooldown = false
-    for _, connection in self._connections or {} do
+    for _, connection in next, self._connections or {} do
         connection:Disconnect()
     end
     self._connections = {}
@@ -2488,7 +2488,7 @@ local function addUnboxable(item, dontRefreshDropdown)
     end
 end
 
-for _, item in Inventory:GetChildren() do
+for _, item in next, Inventory:GetChildren() do
     addUnboxable(item, true)
 end
 
