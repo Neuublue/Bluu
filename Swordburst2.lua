@@ -133,10 +133,17 @@ end
 local identifyexecutor = identifyexecutor or getexecutorname or function() return 'Unknown' end
 
 local RequiredServices = (function()
-    if identifyexecutor() == 'Xeno' then -- fuck you
+    local executor = identifyexecutor()
+    if executor == 'Xeno' then -- fuck you
         StarterGui:SetCore('SendNotification', {
             Title = 'Xeno is bad',
             Text = 'please stop using this piece of shit'
+        })
+        return
+    elseif executor == 'Solara' then
+        StarterGui:SetCore('SendNotification', {
+            Title = 'Solara is bad',
+            Text = 'you dont get full features, better than xeno though'
         })
         return
     end
