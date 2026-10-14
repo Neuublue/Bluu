@@ -23,6 +23,37 @@ if queue_on_teleport then
     ]])
 end
 
+local sendWebhook = (function()
+    local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
+    local HttpService = game:GetService('HttpService')
+
+    return function(url, body, ping)
+        assert(type(url) == 'string')
+        assert(type(body) == 'table')
+        if not string.match(url, '^https://discord') then return end
+
+        body.content = ping and '@everyone' or nil
+        body.username = 'Bluu'
+        body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
+
+        local embed = type(body.embeds) == 'table' and body.embeds[1]
+        if embed then
+            embed.timestamp = DateTime:now():ToIsoDate()
+            embed.footer = {
+                text = 'Bluu',
+                icon_url = body.avatar_url
+            }
+        end
+
+        http_request({
+            Url = url,
+            Body = HttpService:JSONEncode(body),
+            Method = 'POST',
+            Headers = { ['content-type'] = 'application/json' }
+        })
+    end
+end)()
+
 local Players = game:GetService('Players')
 local LocalPlayer = Players.LocalPlayer
 if not LocalPlayer then
@@ -209,6 +240,18 @@ local Library = loadstring(game:HttpGet(UIRepo .. 'Library.lua'))()
 local Options = Library.Options
 local Toggles = Library.Toggles
 
+local sendTestMessage = function(url)
+    sendWebhook(
+        url, {
+            embeds = {{
+                title = 'This is a test message',
+                description = `You'll be notified to this webhook`,
+                color = 0x00ff00
+            }}
+        }, (Toggles.PingInMessage and Toggles.PingInMessage.Value)
+    )
+end
+
 local lastUpdated = (function()
     local success, result = pcall(function()
         local latestCommit = 'https://api.github.com/repos/Neuublue/Bluu/commits?path=Swordburst2.lua&page=1&per_page=1'
@@ -234,49 +277,6 @@ local Window = Library:CreateWindow({
     -- MenuFadeTime = 0.1,
     Size = UDim2.fromOffset(700, 500)
 })
-
-local sendWebhook = (function()
-    local http_request = (syn and syn.request) or (fluxus and fluxus.request) or http_request or request
-    local HttpService = game:GetService('HttpService')
-
-    return function(url, body, ping)
-        assert(type(url) == 'string')
-        assert(type(body) == 'table')
-        if not string.match(url, '^https://discord') then return end
-
-        body.content = ping and '@everyone' or nil
-        body.username = 'Bluu'
-        body.avatar_url = 'https://raw.githubusercontent.com/Neuublue/Bluu/main/Bluu.png'
-
-        local embed = type(body.embeds) == 'table' and body.embeds[1]
-        if embed then
-            embed.timestamp = DateTime:now():ToIsoDate()
-            embed.footer = {
-                text = 'Bluu',
-                icon_url = body.avatar_url
-            }
-        end
-
-        http_request({
-            Url = url,
-            Body = HttpService:JSONEncode(body),
-            Method = 'POST',
-            Headers = { ['content-type'] = 'application/json' }
-        })
-    end
-end)()
-
-local sendTestMessage = function(url)
-    sendWebhook(
-        url, {
-            embeds = {{
-                title = 'This is a test message',
-                description = `You'll be notified to this webhook`,
-                color = 0x00ff00
-            }}
-        }, (Toggles.PingInMessage and Toggles.PingInMessage.Value)
-    )
-end
 
 local Main = Window:AddTab('Main', 'user')
 
