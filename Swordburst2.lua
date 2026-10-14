@@ -1514,7 +1514,10 @@ local stopSwingFunction
 local swingFunction = (function()
     if not getgc then return end
     for _, func in next, getgc() do
-        if type(func) == 'function' and debug.info(func, 'n') == 'Swing' then
+        if type(func) == 'function'
+            and debug.info(func, 'n') == 'Swing'
+            and string.match(debug.info(func, 's'), 'Actions$')
+        then
             stopSwingFunction = function() end
             return func
         end
